@@ -1,0 +1,6 @@
+# Docker镜像构建配置信息
+acr_repo=your-acr-repository-url
+acr_user=your-acr-username
+acr_registry=your-acr-registry-url
+acr_password=your-acr-password
+latest_tag=latest
