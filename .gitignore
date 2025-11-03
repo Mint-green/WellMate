@@ -39,7 +39,8 @@ coverage/
 
 # 忽略环境变量文件（.env文件已提交到仓库，包含默认配置）
 # .env  # 已提交到仓库，包含合理的默认配置
-.env.local  # 本地调试配置，不提交到仓库
+# 本地调试配置，不提交到仓库
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
