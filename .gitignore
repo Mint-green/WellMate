@@ -21,6 +21,7 @@ Thumbs.db
 
 # 忽略日志文件
 *.log
+logs/
 
 # 忽略数据库文件
 *.sqlite3
@@ -28,7 +29,7 @@ Thumbs.db
 
 # 忽略打包文件
 *.egg-info/
-build/
+
 dist/
 *.egg
 
@@ -36,9 +37,9 @@ dist/
 .coverage
 coverage/
 
-# 忽略环境变量文件
-.env
-.env.local
+# 忽略环境变量文件（.env文件已提交到仓库，包含默认配置）
+# .env  # 已提交到仓库，包含合理的默认配置
+.env.local  # 本地调试配置，不提交到仓库
 .env.development.local
 .env.test.local
 .env.production.local
