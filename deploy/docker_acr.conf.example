@@ -1,0 +1,21 @@
+# ACR配置信息模板
+# 格式：键=值
+# 注释以#开头
+
+# ACR仓库地址
+acr_repo=your-registry.aliyuncs.com/your-project/your-image
+
+# ACR用户名
+acr_user=your-acr-username
+
+# ACR密码
+acr_password=your-acr-password
+
+# ACR注册表地址
+acr_registry=your-registry.aliyuncs.com
+
+# 容器名称
+container_name=your-container-name
+
+# 端口映射
+port=8000

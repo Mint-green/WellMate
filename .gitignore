@@ -1,0 +1,61 @@
+# 忽略Python虚拟环境
+.venv/
+venv/
+env/
+
+# 忽略Python编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略IDE相关文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+
+# 忽略操作系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志文件
+*.log
+
+# 忽略数据库文件
+*.sqlite3
+*.db
+
+# 忽略打包文件
+*.egg-info/
+build/
+dist/
+*.egg
+
+# 忽略测试覆盖率
+.coverage
+coverage/
+
+# 忽略环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 忽略部署配置文件
+deploy/docker_acr.conf
+
+# 忽略Docker构建配置文件
+build/docker_build.conf
+
+# 忽略大型数据文件
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# 忽略其他临时文件
+*.tmp
+*.temp
+.cache/

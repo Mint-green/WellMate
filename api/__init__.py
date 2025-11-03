@@ -1,0 +1,15 @@
+from .testapi import testapi_bp
+from .health import health_bp, register_health_blueprints
+
+# 注册所有蓝图的函数
+def register_blueprints(app):
+    # 注册测试接口蓝图
+    app.register_blueprint(testapi_bp)
+    
+    # 注册健康模块父蓝图
+    app.register_blueprint(health_bp)
+    
+    # 注册健康模块的子蓝图，并应用响应装饰器
+    data_bp, chat_bp = register_health_blueprints()
+    app.register_blueprint(data_bp)
+    app.register_blueprint(chat_bp)
