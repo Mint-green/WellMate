@@ -59,6 +59,16 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: 智能确定项目根目录
+:: 如果当前目录是build目录，则项目根目录是上一级
+:: 如果当前目录是项目根目录，则直接使用当前目录
+if /i "%CD:~-5%"=="build" (
+    set "PROJECT_ROOT=%~dp0.."
+) else (
+    set "PROJECT_ROOT=%CD%"
+)
+echo 检测到项目根目录: %PROJECT_ROOT%
+
 :: 生成时间戳（格式：YYYYMMDDHHMM）
 for /f "usebackq tokens=1" %%i in (`powershell -Command "Get-Date -Format 'yyyyMMddHHmm'"`) do set TIMESTAMP=%%i
 
@@ -73,7 +83,7 @@ for /f "tokens=*" %%a in ('docker images --format "{{.Tag}}" %ACR_REPO% 2^>nul ^
 )
 
 :: 版本信息注入配置
-set VERSION_FILE=version.info
+set "VERSION_FILE=%PROJECT_ROOT%\version.info"
 for /f "usebackq tokens=*" %%d in (`powershell -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'"`) do set BUILD_DATE=%%d
 for /f "tokens=*" %%c in ('git rev-parse --short HEAD 2^>nul') do set GIT_COMMIT=%%c
 if "%GIT_COMMIT%"=="" set GIT_COMMIT=unknown
@@ -109,15 +119,15 @@ echo 第 %RETRY_COUNT% 次尝试（共 %MAX_RETRIES% 次）...
 :: 根据重试次数尝试不同的构建方法
 if %RETRY_COUNT% equ 1 (
     echo 使用标准Docker构建...
-    docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" ..\
+    docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" "%PROJECT_ROOT%"
 ) else if %RETRY_COUNT% equ 2 (
     echo 尝试启用BuildKit...
     set DOCKER_BUILDKIT=1
-    docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" ..\
+    docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" "%PROJECT_ROOT%"
 ) else (
     echo 尝试无缓存和BuildKit...
     set DOCKER_BUILDKIT=1
-    docker build --no-cache --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" ..\
+    docker build --no-cache --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" -t "%FULL_TAG%" "%PROJECT_ROOT%"
 )
 
 if %errorlevel% equ 0 (
@@ -155,7 +165,7 @@ if %RETRY_COUNT% lss %MAX_RETRIES% (
 
 :: 为latest标签也构建一个镜像（使用相同的版本信息）
 echo 为latest标签构建镜像...
-docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" --build-arg IMAGE_ID="%FULL_TAG%" -t "%LATEST_FULL_TAG%" ..\
+docker build --build-arg BUILD_TIMESTAMP="%TIMESTAMP%" --build-arg BUILD_TAG="%VERSION_TAG%" --build-arg IMAGE_ID="%FULL_TAG%" -t "%LATEST_FULL_TAG%" "%PROJECT_ROOT%"
 
 echo 镜像构建成功。
 

@@ -24,8 +24,18 @@ if [ -z "$ACR_REPO" ] || [ -z "$ACR_USER" ] || [ -z "$ACR_REGISTRY" ] || [ -z "$
     exit 1
 fi
 
+# 智能确定项目根目录
+# 如果当前目录是build目录，则项目根目录是上一级
+# 如果当前目录是项目根目录，则直接使用当前目录
+if [[ "$(basename "$PWD")" == "build" ]]; then
+    PROJECT_ROOT="$(dirname "$PWD")"
+else
+    PROJECT_ROOT="$PWD"
+fi
+echo "检测到项目根目录: $PROJECT_ROOT"
+
 # 版本信息注入配置
-VERSION_FILE="version.info"
+VERSION_FILE="$PROJECT_ROOT/version.info"
 BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -87,20 +97,20 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         docker build \
             --build-arg BUILD_TIMESTAMP="${TIMESTAMP}" \
             --build-arg BUILD_TAG="${VERSION_TAG}" \
-            -t "${FULL_TAG}" ..
+            -t "${FULL_TAG}" "${PROJECT_ROOT}"
     elif [ $RETRY_COUNT -eq 2 ]; then
         echo "尝试启用BuildKit..."
         DOCKER_BUILDKIT=1 docker build \
             --build-arg BUILD_TIMESTAMP="${TIMESTAMP}" \
             --build-arg BUILD_TAG="${VERSION_TAG}" \
-            -t "${FULL_TAG}" ..
+            -t "${FULL_TAG}" "${PROJECT_ROOT}"
     else
         echo "尝试无缓存和BuildKit..."
         DOCKER_BUILDKIT=1 docker build \
             --no-cache \
             --build-arg BUILD_TIMESTAMP="${TIMESTAMP}" \
             --build-arg BUILD_TAG="${VERSION_TAG}" \
-            -t "${FULL_TAG}" ..
+            -t "${FULL_TAG}" "${PROJECT_ROOT}"
     fi
     
     if [ $? -eq 0 ]; then
@@ -140,7 +150,7 @@ docker build \
     --build-arg BUILD_TIMESTAMP="${TIMESTAMP}" \
     --build-arg BUILD_TAG="${VERSION_TAG}" \
     --build-arg IMAGE_ID="${FULL_TAG}" \
-    -t "${LATEST_FULL_TAG}" ..
+    -t "${LATEST_FULL_TAG}" "${PROJECT_ROOT}"
 
 echo "镜像构建成功。"
 
