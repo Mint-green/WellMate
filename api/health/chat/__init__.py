@@ -39,3 +39,6 @@ def text_chat_stream():
     
     # 返回流式响应，设置适当的Content-Type
     return Response(generate(), mimetype='text/event-stream')
+
+# 导入物理对话蓝图
+from .physical import physical_bp

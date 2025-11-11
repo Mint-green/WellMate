@@ -10,6 +10,6 @@ def register_blueprints(app):
     app.register_blueprint(health_bp)
     
     # 注册健康模块的子蓝图，并应用响应装饰器
-    data_bp, chat_bp = register_health_blueprints()
-    app.register_blueprint(data_bp)
-    app.register_blueprint(chat_bp)
+    blueprints = register_health_blueprints()
+    for bp in blueprints:
+        app.register_blueprint(bp)

@@ -70,7 +70,7 @@ def health_check():
 # 导入子模块的蓝图
 def register_health_blueprints():
     from .data import data_bp
-    from .chat import chat_bp
+    from .chat import chat_bp, physical_bp
     
     # 返回蓝图对象
-    return data_bp, chat_bp
+    return data_bp, chat_bp, physical_bp
