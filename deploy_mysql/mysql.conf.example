@@ -1,0 +1,23 @@
+# MySQL Container Configuration Example
+
+# Docker相关配置
+MYSQL_IMAGE=mysql:8.0
+CONTAINER_NAME=wellmate_mysql
+NETWORK_NAME=wellmate_network
+
+# MySQL配置
+MYSQL_ROOT_PASSWORD=your_root_password
+MYSQL_DATABASE=wellmate
+MYSQL_USER=wellmateuser
+MYSQL_PASSWORD=your_user_password
+
+# 端口映射 (宿主机端口:容器端口)
+HOST_PORT=3306
+CONTAINER_PORT=3306
+
+# 数据持久化路径 (请根据实际环境修改)
+DATA_VOLUME_PATH=./mysql_data
+CONFIG_VOLUME_PATH=./mysql_config
+
+# 初始化脚本路径
+INIT_SQL_PATH=./init_sql
