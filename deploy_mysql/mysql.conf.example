@@ -1,15 +1,16 @@
 # MySQL Container Configuration Example
+# 请复制此文件为 mysql.conf 并根据实际环境修改配置
 
 # Docker相关配置
 MYSQL_IMAGE=mysql:8.0
 CONTAINER_NAME=wellmate_mysql
 NETWORK_NAME=wellmate_network
 
-# MySQL配置
-MYSQL_ROOT_PASSWORD=your_root_password
+# MySQL配置 (生产环境必须修改密码)
+MYSQL_ROOT_PASSWORD=your_secure_root_password_here
 MYSQL_DATABASE=wellmate
 MYSQL_USER=wellmateuser
-MYSQL_PASSWORD=your_user_password
+MYSQL_PASSWORD=your_secure_user_password_here
 
 # 端口映射 (宿主机端口:容器端口)
 HOST_PORT=3306

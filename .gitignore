@@ -51,6 +51,9 @@ deploy/docker_acr.conf
 # 忽略Docker构建配置文件
 build/docker_build.conf
 
+# 忽略MySQL部署配置文件
+deploy_mysql/mysql.conf
+
 # 忽略大型数据文件
 *.h5
 *.hdf5
@@ -61,3 +64,7 @@ build/docker_build.conf
 *.tmp
 *.temp
 .cache/
+
+
+# 忽略agent_demo目录
+agent_demo/

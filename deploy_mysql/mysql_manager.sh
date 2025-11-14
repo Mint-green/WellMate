@@ -3,17 +3,40 @@
 # MySQL容器管理脚本
 # 用于管理MySQL容器的启动、停止、重启、状态查看等操作
 
-# 配置文件路径
-CONFIG_FILE="./mysql.conf"
+set -e  # 遇到错误时退出
 
-# 检查配置文件是否存在
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "错误: 配置文件 $CONFIG_FILE 不存在"
+# 脚本目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 读取配置信息（使用Python脚本，兼容Windows/Linux）
+read_config() {
+    local key=$1
+    python "${SCRIPT_DIR}/read_mysql_config.py" "$key" 2>/dev/null
+}
+
+# 获取配置值
+MYSQL_IMAGE=$(read_config "MYSQL_IMAGE")
+CONTAINER_NAME=$(read_config "CONTAINER_NAME")
+NETWORK_NAME=$(read_config "NETWORK_NAME")
+MYSQL_ROOT_PASSWORD=$(read_config "MYSQL_ROOT_PASSWORD")
+MYSQL_DATABASE=$(read_config "MYSQL_DATABASE")
+MYSQL_USER=$(read_config "MYSQL_USER")
+MYSQL_PASSWORD=$(read_config "MYSQL_PASSWORD")
+HOST_PORT=$(read_config "HOST_PORT")
+CONTAINER_PORT=$(read_config "CONTAINER_PORT")
+DATA_VOLUME_PATH=$(read_config "DATA_VOLUME_PATH")
+CONFIG_VOLUME_PATH=$(read_config "CONFIG_VOLUME_PATH")
+INIT_SQL_PATH=$(read_config "INIT_SQL_PATH")
+
+# 验证配置是否成功读取
+if [ -z "$MYSQL_IMAGE" ] || [ -z "$CONTAINER_NAME" ] || [ -z "$NETWORK_NAME" ] || \
+   [ -z "$MYSQL_ROOT_PASSWORD" ] || [ -z "$MYSQL_DATABASE" ] || [ -z "$MYSQL_USER" ] || [ -z "$MYSQL_PASSWORD" ] || \
+   [ -z "$HOST_PORT" ] || [ -z "$CONTAINER_PORT" ] || [ -z "$DATA_VOLUME_PATH" ] || \
+   [ -z "$CONFIG_VOLUME_PATH" ] || [ -z "$INIT_SQL_PATH" ]; then
+    echo "错误：无法读取配置文件或配置信息不完整。"
+    echo "请检查 ${SCRIPT_DIR}/mysql.conf 文件是否存在且格式正确。"
     exit 1
 fi
-
-# 导入配置
-source $CONFIG_FILE
 
 # 显示帮助信息
 show_help() {
@@ -86,7 +109,7 @@ start_container() {
             echo "MySQL服务已成功启动"
             break
         fi
-        echo "等待MySQL服务启动中... ($i/30)"
+        echo "等待MySQL服务启动... ($i/30)"
         sleep 2
     done
     
@@ -115,7 +138,7 @@ restart_container() {
 
 # 查看MySQL容器状态
 check_status() {
-    echo "MySQL容器状态:"
+    echo "MySQL容器状态："
     
     # 检查容器是否存在
     if docker ps -a | grep -q $CONTAINER_NAME; then
@@ -127,7 +150,7 @@ check_status() {
         # 如果容器正在运行，显示更多详细信息
         if docker ps | grep -q $CONTAINER_NAME; then
             echo "端口映射: $HOST_PORT->$CONTAINER_PORT"
-            echo "数据卷挂载:"
+            echo "数据卷挂载："
             echo "  - 数据: $DATA_VOLUME_PATH:/var/lib/mysql"
             echo "  - 配置: $CONFIG_VOLUME_PATH:/etc/mysql/conf.d"
             echo "  - 初始化脚本: $INIT_SQL_PATH:/docker-entrypoint-initdb.d"
@@ -139,7 +162,7 @@ check_status() {
 
 # 查看MySQL容器日志
 view_logs() {
-    echo "MySQL容器日志:"
+    echo "MySQL容器日志："
     
     if docker ps -a | grep -q $CONTAINER_NAME; then
         docker logs $CONTAINER_NAME
