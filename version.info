@@ -1,6 +1,6 @@
-REPO_PATH=crpi-t94140ki6zwcf0xb.cn-shenzhen.personal.cr.aliyuncs.com/hku-projects/well-mate-backend
-BUILD_TIMESTAMP=202511042035
-BUILD_TAG=2025110420351
-BUILD_DATE=2025-11-04 20:35:48
-GIT_COMMIT=c479afb
-GIT_BRANCH=main
+REPO_PATH=crpi-t94140ki6zwcf0xb.cn-shenzhen.personal.cr.aliyuncs.com/hku-projects/well-mate-backend 
+BUILD_TIMESTAMP=202511152040 
+BUILD_TAG=2025111520401 
+BUILD_DATE=2025-11-15 20:40:08 
+GIT_COMMIT=04c1783 
+GIT_BRANCH=main 
