@@ -69,11 +69,24 @@ def register():
 
 @user_bp.route('/auth/login', methods=['POST'])
 def login():
-    """用户登录接口"""
+    """用户登录接口 - 优化版本"""
+    # 优化：使用内存缓存调试信息，减少文件I/O
+    debug_info = []
+    
+    def add_debug(msg):
+        """添加调试信息到内存缓存"""
+        debug_info.append(msg)
+    
+    add_debug("=== 开始处理登录请求 ===")
+    
     data = request.get_json()
+    add_debug(f"请求数据: {data}")
     
     # 检查必需字段
     if 'username' not in data or 'password' not in data:
+        add_debug("缺少用户名或密码字段")
+        # 优化：只在需要时写入文件
+        _write_debug_to_file(debug_info)
         return {
             'error': {
                 'code': 'INVALID_REQUEST',
@@ -83,12 +96,16 @@ def login():
     
     username = data['username']
     password = data['password']
+    add_debug(f"用户名: {username}, 密码长度: {len(password)}")
     
     try:
         # 使用数据库进行用户认证
+        add_debug("开始调用authenticate_user方法")
         user = user_db_manager.authenticate_user(username, password)
         
         if not user:
+            add_debug("authenticate_user返回None，认证失败")
+            _write_debug_to_file(debug_info)
             return {
                 'error': {
                     'code': 'AUTHENTICATION_FAILED',
@@ -96,8 +113,12 @@ def login():
                 }
             }, 401
         
+        add_debug(f"用户认证成功: {user}")
+        
         # 检查账户是否激活
         if not user['is_active']:
+            add_debug(f"用户账户未激活: {username}")
+            _write_debug_to_file(debug_info)
             return {
                 'error': {
                     'code': 'ACCOUNT_INACTIVE',
@@ -105,7 +126,10 @@ def login():
                 }
             }, 403
         
-        logger.info(f"用户登录成功: {username} (ID: {user['id']})")
+        add_debug(f"用户登录成功: {username} (ID: {user['id']})")
+        
+        # 优化：只在成功时写入文件，减少I/O操作
+        _write_debug_to_file(debug_info)
         
         return {
             'status': 'success',
@@ -116,13 +140,31 @@ def login():
         }
         
     except Exception as e:
-        logger.error(f"用户登录失败: {e}")
+        add_debug(f"用户登录失败: {e}")
+        import traceback
+        add_debug(traceback.format_exc())
+        # 错误情况下也写入调试信息
+        _write_debug_to_file(debug_info)
         return {
             'error': {
                 'code': 'INTERNAL_ERROR',
                 'message': '登录失败，请稍后重试'
             }
         }, 500
+
+def _write_debug_to_file(debug_info):
+    """将调试信息写入文件（优化版本）"""
+    if not debug_info:
+        return
+    
+    try:
+        # 优化：一次性写入所有调试信息，减少文件操作次数
+        debug_file = '/app/debug_login.txt'
+        with open(debug_file, 'a') as f:
+            f.write('\n'.join(debug_info) + '\n')
+    except Exception as e:
+        # 文件写入失败不影响主流程
+        logger.warning(f"调试信息写入失败: {e}")
 
 @user_bp.route('/auth/profile', methods=['GET'])
 @health_response_decorator

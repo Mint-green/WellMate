@@ -11,6 +11,7 @@ import logging
 from typing import Dict, Optional, List, Any
 
 from utils.db_connector import db_connector
+from utils.cache_manager import cache_manager, generate_user_cache_key, generate_user_uuid_cache_key, generate_user_id_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,14 @@ class UserDBManager:
             raise
     
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """根据用户名获取用户信息"""
+        """根据用户名获取用户信息（带缓存）"""
+        # 首先尝试从缓存获取
+        cache_key = generate_user_cache_key(username)
+        cached_user = cache_manager.get(cache_key)
+        if cached_user is not None:
+            logger.debug(f"用户缓存命中: {username}")
+            return cached_user
+        
         query = f"""
         SELECT id, uuid, username, password, full_name, gender, birth_date, age, 
                settings, created_at, updated_at, last_login, is_active
@@ -79,6 +87,11 @@ class UserDBManager:
             if result:
                 user = result[0]
                 user['settings'] = self._deserialize_settings(user['settings'])
+                
+                # 缓存用户信息（TTL：10分钟）
+                cache_manager.set(cache_key, user, ttl=600)
+                logger.debug(f"用户信息已缓存: {username}")
+                
                 return user
             return None
         except Exception as e:
@@ -86,7 +99,14 @@ class UserDBManager:
             return None
     
     def get_user_by_uuid(self, user_uuid: str) -> Optional[Dict[str, Any]]:
-        """根据UUID获取用户信息"""
+        """根据UUID获取用户信息（带缓存）"""
+        # 首先尝试从缓存获取
+        cache_key = generate_user_uuid_cache_key(user_uuid)
+        cached_user = cache_manager.get(cache_key)
+        if cached_user is not None:
+            logger.debug(f"用户UUID缓存命中: {user_uuid}")
+            return cached_user
+        
         query = f"""
         SELECT id, uuid, username, password, full_name, gender, birth_date, age, 
                settings, created_at, updated_at, last_login, is_active
@@ -99,6 +119,11 @@ class UserDBManager:
             if result:
                 user = result[0]
                 user['settings'] = self._deserialize_settings(user['settings'])
+                
+                # 缓存用户信息（TTL：10分钟）
+                cache_manager.set(cache_key, user, ttl=600)
+                logger.debug(f"用户UUID信息已缓存: {user_uuid}")
+                
                 return user
             return None
         except Exception as e:
@@ -106,7 +131,14 @@ class UserDBManager:
             return None
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """根据用户ID获取用户信息"""
+        """根据用户ID获取用户信息（带缓存）"""
+        # 首先尝试从缓存获取
+        cache_key = generate_user_id_cache_key(user_id)
+        cached_user = cache_manager.get(cache_key)
+        if cached_user is not None:
+            logger.debug(f"用户ID缓存命中: {user_id}")
+            return cached_user
+        
         query = f"""
         SELECT id, uuid, username, password, full_name, gender, birth_date, age, 
                settings, created_at, updated_at, last_login, is_active
@@ -119,6 +151,11 @@ class UserDBManager:
             if result:
                 user = result[0]
                 user['settings'] = self._deserialize_settings(user['settings'])
+                
+                # 缓存用户信息（TTL：10分钟）
+                cache_manager.set(cache_key, user, ttl=600)
+                logger.debug(f"用户ID信息已缓存: {user_id}")
+                
                 return user
             return None
         except Exception as e:
@@ -127,14 +164,24 @@ class UserDBManager:
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """用户认证"""
+        logger.debug(f"开始用户认证: username={username}")
+        
         user = self.get_user_by_username(username)
         
         if not user:
+            logger.debug(f"用户不存在: {username}")
             return None
+        
+        logger.debug(f"找到用户: ID={user['id']}, 数据库密码长度={len(user['password'])}, 输入密码长度={len(password)}")
+        logger.debug(f"数据库密码: {user['password']}")
+        logger.debug(f"输入密码: {password}")
         
         # 检查密码（当前为明文比较，实际应用中应使用哈希）
         if user['password'] != password:
+            logger.debug(f"密码不匹配: 数据库密码='{user['password']}' != 输入密码='{password}'")
             return None
+        
+        logger.debug(f"密码匹配成功: {username}")
         
         # 更新最后登录时间
         self.update_last_login(user['id'])
@@ -154,7 +201,13 @@ class UserDBManager:
             rows_affected = db_connector.execute_update(
                 update_query, (current_time, current_time, user_id)
             )
-            return rows_affected > 0
+            
+            if rows_affected > 0:
+                # 清除相关缓存，确保数据一致性
+                self._invalidate_user_cache(user_id)
+                logger.debug(f"用户最后登录时间已更新，缓存已清除: {user_id}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"更新最后登录时间失败: {e}")
             return False
@@ -172,7 +225,13 @@ class UserDBManager:
             rows_affected = db_connector.execute_update(
                 update_query, (self._serialize_settings(settings), current_time, user_id)
             )
-            return rows_affected > 0
+            
+            if rows_affected > 0:
+                # 清除相关缓存，确保数据一致性
+                self._invalidate_user_cache(user_id)
+                logger.debug(f"用户设置已更新，缓存已清除: {user_id}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"更新用户设置失败: {e}")
             return False
@@ -256,6 +315,26 @@ class UserDBManager:
             return json.loads(settings_str)
         except (json.JSONDecodeError, TypeError):
             return {}
+    
+    def _invalidate_user_cache(self, user_id: int) -> None:
+        """清除用户相关的所有缓存"""
+        try:
+            # 获取用户信息以清除所有相关缓存
+            user = self.get_user_by_id(user_id)
+            if user:
+                # 清除所有类型的用户缓存
+                cache_keys = [
+                    generate_user_cache_key(user['username']),
+                    generate_user_uuid_cache_key(user['uuid']),
+                    generate_user_id_cache_key(user_id)
+                ]
+                
+                for cache_key in cache_keys:
+                    cache_manager.delete(cache_key)
+                
+                logger.debug(f"用户缓存已清除: {user['username']} (ID: {user_id})")
+        except Exception as e:
+            logger.warning(f"清除用户缓存失败: {e}")
 
 # 创建全局实例
 user_db_manager = UserDBManager()
