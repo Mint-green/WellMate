@@ -9,22 +9,22 @@ load_dotenv(env_file_path)
 
 # 从环境变量获取配置，如果没有则使用默认值
 host = os.getenv('HOST', '0.0.0.0')
-port = os.getenv('PORT', '8000')
+port = os.getenv('PORT', '5000')
 
 # 绑定的主机和端口
 bind = f'{host}:{port}'
 
-# 工作进程数，通常设置为CPU核心数的2-4倍
-workers = int(os.getenv('GUNICORN_WORKERS', '4'))
+# 工作进程数，调整为更保守的设置
+workers = int(os.getenv('GUNICORN_WORKERS', '2'))
 
 # 每个工作进程的线程数
-threads = int(os.getenv('GUNICORN_THREADS', '2'))
+threads = int(os.getenv('GUNICORN_THREADS', '1'))
 
 # 工作进程类型
-worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'gevent')
+worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'sync')
 
 # 请求超时时间（秒）
-timeout = int(os.getenv('GUNICORN_TIMEOUT', '30'))
+timeout = int(os.getenv('GUNICORN_TIMEOUT', '60'))
 
 # 访问日志格式
 accesslog = 'logs/access.log'  # 输出到访问日志文件
@@ -32,7 +32,7 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 
 # 错误日志格式和级别
 errorlog = 'logs/error.log'  # 输出到错误日志文件
-loglevel = os.getenv('LOG_LEVEL', 'info')
+loglevel = os.getenv('LOG_LEVEL', 'debug')  # 设置为debug级别以获取更详细日志
 
 # 进程ID文件
 # pidfile = 'gunicorn.pid'

@@ -18,5 +18,5 @@ RUN echo "Build Timestamp: ${BUILD_TIMESTAMP}" > /app/version.txt && \
     echo "Build Tag: ${BUILD_TAG}" >> /app/version.txt && \
     echo "Build Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> /app/version.txt
 
-EXPOSE 8000
+EXPOSE 5000
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
