@@ -18,4 +18,4 @@ acr_registry=your-registry.aliyuncs.com
 container_name=your-container-name
 
 # 端口映射
-port=8000
+port=5000

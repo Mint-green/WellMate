@@ -129,7 +129,7 @@ fi
 echo "启动新容器..."
 docker run -d \
     --name "${CONTAINER_NAME}" \
-    -p "${PORT}:8000" \
+    -p "${PORT}:5000" \
     --restart unless-stopped \
     "${LATEST_IMAGE}"
 
