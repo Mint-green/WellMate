@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Optional, List, Any
 
 from utils.db_connector import db_connector
-from utils.cache_manager import cache_manager, generate_user_cache_key, generate_user_uuid_cache_key, generate_user_id_cache_key
+from utils.cache_manager import cache_manager, generate_user_cache_key, generate_user_uuid_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -130,37 +130,7 @@ class UserDBManager:
             logger.error(f"查询用户失败: {e}")
             return None
     
-    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """根据用户ID获取用户信息（带缓存）"""
-        # 首先尝试从缓存获取
-        cache_key = generate_user_id_cache_key(user_id)
-        cached_user = cache_manager.get(cache_key)
-        if cached_user is not None:
-            logger.debug(f"用户ID缓存命中: {user_id}")
-            return cached_user
-        
-        query = f"""
-        SELECT id, uuid, username, password, full_name, gender, birth_date, age, 
-               settings, created_at, updated_at, last_login, is_active
-        FROM {self.table_name} 
-        WHERE id = %s AND is_active = TRUE
-        """
-        
-        try:
-            result = db_connector.execute_query(query, (user_id,))
-            if result:
-                user = result[0]
-                user['settings'] = self._deserialize_settings(user['settings'])
-                
-                # 缓存用户信息（TTL：10分钟）
-                cache_manager.set(cache_key, user, ttl=600)
-                logger.debug(f"用户ID信息已缓存: {user_id}")
-                
-                return user
-            return None
-        except Exception as e:
-            logger.error(f"查询用户失败: {e}")
-            return None
+
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """用户认证"""
@@ -172,7 +142,7 @@ class UserDBManager:
             logger.debug(f"用户不存在: {username}")
             return None
         
-        logger.debug(f"找到用户: ID={user['id']}, 数据库密码长度={len(user['password'])}, 输入密码长度={len(password)}")
+        logger.debug(f"找到用户: UUID={user['uuid']}, 数据库密码长度={len(user['password'])}, 输入密码长度={len(password)}")
         logger.debug(f"数据库密码: {user['password']}")
         logger.debug(f"输入密码: {password}")
         
@@ -184,62 +154,68 @@ class UserDBManager:
         logger.debug(f"密码匹配成功: {username}")
         
         # 更新最后登录时间
-        self.update_last_login(user['id'])
+        self.update_last_login_by_uuid(user['uuid'])
         
         return user
     
-    def update_last_login(self, user_id: int) -> bool:
-        """更新用户最后登录时间"""
+
+    
+    def update_last_login_by_uuid(self, user_uuid: str) -> bool:
+        """根据UUID更新用户最后登录时间"""
         update_query = f"""
         UPDATE {self.table_name} 
         SET last_login = %s, updated_at = %s
-        WHERE id = %s
+        WHERE uuid = %s
         """
         
         try:
             current_time = datetime.datetime.now()
             rows_affected = db_connector.execute_update(
-                update_query, (current_time, current_time, user_id)
+                update_query, (current_time, current_time, user_uuid)
             )
             
             if rows_affected > 0:
                 # 清除相关缓存，确保数据一致性
-                self._invalidate_user_cache(user_id)
-                logger.debug(f"用户最后登录时间已更新，缓存已清除: {user_id}")
+                self._invalidate_user_cache_by_uuid(user_uuid)
+                logger.debug(f"用户最后登录时间已更新，缓存已清除: {user_uuid}")
                 return True
             return False
         except Exception as e:
             logger.error(f"更新最后登录时间失败: {e}")
             return False
     
-    def update_user_settings(self, user_id: int, settings: Dict[str, Any]) -> bool:
-        """更新用户设置"""
+
+    
+    def update_user_settings_by_uuid(self, user_uuid: str, settings: Dict[str, Any]) -> bool:
+        """根据UUID更新用户设置"""
         update_query = f"""
         UPDATE {self.table_name} 
         SET settings = %s, updated_at = %s
-        WHERE id = %s
+        WHERE uuid = %s
         """
         
         try:
             current_time = datetime.datetime.now()
             rows_affected = db_connector.execute_update(
-                update_query, (self._serialize_settings(settings), current_time, user_id)
+                update_query, (self._serialize_settings(settings), current_time, user_uuid)
             )
             
             if rows_affected > 0:
                 # 清除相关缓存，确保数据一致性
-                self._invalidate_user_cache(user_id)
-                logger.debug(f"用户设置已更新，缓存已清除: {user_id}")
+                self._invalidate_user_cache_by_uuid(user_uuid)
+                logger.debug(f"用户设置已更新，缓存已清除: {user_uuid}")
                 return True
             return False
         except Exception as e:
             logger.error(f"更新用户设置失败: {e}")
             return False
     
-    def update_user_profile(self, user_id: int, full_name: Optional[str] = None, 
-                           gender: Optional[str] = None, birth_date: Optional[str] = None,
-                           age: Optional[int] = None) -> bool:
-        """更新用户基本信息"""
+
+    
+    def update_user_profile_by_uuid(self, user_uuid: str, full_name: Optional[str] = None, 
+                                   gender: Optional[str] = None, birth_date: Optional[str] = None,
+                                   age: Optional[int] = None) -> bool:
+        """根据UUID更新用户基本信息"""
         # 构建动态更新SQL
         update_fields = []
         params = []
@@ -265,12 +241,12 @@ class UserDBManager:
         
         update_fields.append("updated_at = %s")
         params.append(datetime.datetime.now())
-        params.append(user_id)
+        params.append(user_uuid)
         
         update_query = f"""
         UPDATE {self.table_name} 
         SET {', '.join(update_fields)}
-        WHERE id = %s
+        WHERE uuid = %s
         """
         
         try:
@@ -280,17 +256,19 @@ class UserDBManager:
             logger.error(f"更新用户信息失败: {e}")
             return False
     
-    def delete_user(self, user_id: int) -> bool:
-        """删除用户（软删除）"""
+
+    
+    def delete_user_by_uuid(self, user_uuid: str) -> bool:
+        """根据UUID删除用户（软删除）"""
         update_query = f"""
         UPDATE {self.table_name} 
         SET is_active = FALSE, updated_at = %s
-        WHERE id = %s
+        WHERE uuid = %s
         """
         
         try:
             rows_affected = db_connector.execute_update(
-                update_query, (datetime.datetime.now(), user_id)
+                update_query, (datetime.datetime.now(), user_uuid)
             )
             return rows_affected > 0
         except Exception as e:
@@ -316,23 +294,24 @@ class UserDBManager:
         except (json.JSONDecodeError, TypeError):
             return {}
     
-    def _invalidate_user_cache(self, user_id: int) -> None:
-        """清除用户相关的所有缓存"""
+
+    
+    def _invalidate_user_cache_by_uuid(self, user_uuid: str) -> None:
+        """根据UUID清除用户相关的所有缓存"""
         try:
             # 获取用户信息以清除所有相关缓存
-            user = self.get_user_by_id(user_id)
+            user = self.get_user_by_uuid(user_uuid)
             if user:
                 # 清除所有类型的用户缓存
                 cache_keys = [
                     generate_user_cache_key(user['username']),
-                    generate_user_uuid_cache_key(user['uuid']),
-                    generate_user_id_cache_key(user_id)
+                    generate_user_uuid_cache_key(user_uuid)
                 ]
                 
                 for cache_key in cache_keys:
                     cache_manager.delete(cache_key)
                 
-                logger.debug(f"用户缓存已清除: {user['username']} (ID: {user_id})")
+                logger.debug(f"用户缓存已清除: {user['username']} (UUID: {user_uuid})")
         except Exception as e:
             logger.warning(f"清除用户缓存失败: {e}")
 

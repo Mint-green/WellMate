@@ -92,11 +92,11 @@ class UserDatabaseManager:
             return None
     
     @staticmethod
-    def get_user_by_id(user_id: int) -> Optional[User]:
-        """根据用户ID获取用户"""
-        query = "SELECT * FROM users WHERE id = %s"
+    def get_user_by_uuid(user_uuid: str) -> Optional[User]:
+        """根据用户UUID获取用户"""
+        query = "SELECT * FROM users WHERE uuid = %s"
         try:
-            result = db_connector.execute_query(query, (user_id,))
+            result = db_connector.execute_query(query, (user_uuid,))
             if result:
                 return User.from_dict(result[0])
             return None
@@ -110,19 +110,6 @@ class UserDatabaseManager:
         query = "SELECT * FROM users WHERE username = %s"
         try:
             result = db_connector.execute_query(query, (username,))
-            if result:
-                return User.from_dict(result[0])
-            return None
-        except Exception as e:
-            print(f"查询用户失败: {e}")
-            return None
-    
-    @staticmethod
-    def get_user_by_uuid(uuid: str) -> Optional[User]:
-        """根据UUID获取用户"""
-        query = "SELECT * FROM users WHERE uuid = %s"
-        try:
-            result = db_connector.execute_query(query, (uuid,))
             if result:
                 return User.from_dict(result[0])
             return None

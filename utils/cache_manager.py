@@ -89,13 +89,9 @@ def generate_user_cache_key(username: str) -> str:
     """生成用户缓存键"""
     return f"user:{username}"
 
-def generate_user_uuid_cache_key(uuid: str) -> str:
+def generate_user_uuid_cache_key(user_uuid: str) -> str:
     """生成用户UUID缓存键"""
-    return f"user_uuid:{uuid}"
-
-def generate_user_id_cache_key(user_id: int) -> str:
-    """生成用户ID缓存键"""
-    return f"user_id:{user_id}"
+    return f"user_uuid:{user_uuid}"
 
 # 缓存装饰器
 def cache_result(ttl: int = 300, key_func: Optional[callable] = None):
