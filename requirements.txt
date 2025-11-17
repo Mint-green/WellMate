@@ -16,9 +16,12 @@ mysql-connector-python==8.2.0
 # HTTP请求库（用于API调用）
 requests==2.31.0
 
+# JWT认证支持
+PyJWT==2.8.0
+
 # 异步网络库（可选，Windows环境可能需跳过）
 gevent==23.9.1
 
 # 注意：在Windows环境中，gevent可能需要C编译器支持
 # 如果安装失败，可以跳过gevent安装，使用以下命令：
-# pip install flask==3.0.2 flask-cors==4.0.0 python-dotenv==1.0.1 mysql-connector-python==8.2.0 requests==2.31.0
+# pip install flask==3.0.2 flask-cors==4.0.0 python-dotenv==1.0.1 mysql-connector-python==8.2.0 requests==2.31.0 PyJWT==2.8.0
