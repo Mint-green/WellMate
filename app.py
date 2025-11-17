@@ -1,4 +1,5 @@
 import os
+import logging
 from flask import Flask
 from api import register_blueprints
 from dotenv import load_dotenv
@@ -21,13 +22,41 @@ app = Flask(__name__)
 # 配置应用（当前项目不需要SECRET_KEY，移除相关配置）
 app.config['DEBUG'] = os.getenv('DEBUG', 'False').lower() == 'true'
 
+# 配置日志级别
+log_level = os.getenv('LOG_LEVEL', 'DEBUG')
+logging.basicConfig(level=getattr(logging, log_level.upper()))
+
 # 注册所有蓝图
 register_blueprints(app)
 
+# 添加根路径路由
+@app.route('/')
+def root():
+    return {
+        'status': 'success',
+        'message': 'Health Assistant API is running',
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/health/check',
+            'test': '/testapi/test',
+            'user': '/api/user'
+        }
+    }
+
 if __name__ == '__main__':
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Run Flask application')
+    parser.add_argument('--port', type=int, default=int(os.getenv('PORT', '5000')), 
+                       help='Port to run the application on')
+    parser.add_argument('--host', type=str, default=os.getenv('HOST', '0.0.0.0'),
+                       help='Host to run the application on')
+    args = parser.parse_args()
+    
     # 从环境变量获取配置，如果没有则使用默认值
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', '5000'))
+    host = args.host
+    port = args.port
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
     
     # 运行Flask应用
