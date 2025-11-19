@@ -10,8 +10,12 @@ import json
 import uuid
 import os
 import logging
+import datetime
+import time
+import random
 from . import mental_bp
-from ..sessions.session_manager import SessionManager
+from utils.jwt_utils import token_required
+from ..sessions.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -30,86 +34,115 @@ headers = {
 def generate_conversation_id():
     return str(uuid.uuid4())
 
-# === 会话和存储处理 ===
-def handle_session_and_storage(user_uuid, session_id, message, response_text, conversation_id=None):
-    """处理会话管理和消息存储"""
-    session_manager = SessionManager()
+# === 处理会话和消息存储 ===
+def handle_session_and_storage(user_uuid, session_id, user_input, ai_response):
+    """
+    处理会话创建和消息存储
     
-    # 如果提供了session_id，验证会话是否存在
-    if session_id:
-        existing_session = session_manager.get_session(session_id)
-        if not existing_session:
-            # 会话不存在，创建新会话（使用general类型，因为数据库ENUM不支持mental）
-            new_session = session_manager.create_session(user_uuid, "general")
-            if new_session:
-                session_id = new_session.get('session_id')
-            else:
-                logger.error("创建新会话失败")
-                return {
-                    "session_id": None,
-                    "conversation_id": conversation_id or str(uuid.uuid4())
-                }
-    else:
-        # 创建新会话（使用general类型，因为数据库ENUM不支持mental）
-        new_session = session_manager.create_session(user_uuid, "general")
-        if new_session:
-            session_id = new_session.get('session_id')
-        else:
-            logger.error("创建新会话失败")
-            return {
-                "session_id": None,
-                "conversation_id": conversation_id or str(uuid.uuid4())
-            }
-    
-    # 如果session_id仍然为None，则无法存储消息，但返回conversation_id
-    if not session_id:
-        return {
-            "session_id": None,
-            "conversation_id": conversation_id or str(uuid.uuid4())
-        }
-    
-    # 获取或创建conversation_id
-    if not conversation_id:
-        conversation_id = session_manager.get_or_create_conversation_id(session_id)
-    
-    # 存储用户消息
-    user_metadata = {"conversation_id": conversation_id}
-    session_manager.add_message(session_id, "user", message, user_metadata)
-    
-    # 存储AI回复
-    assistant_metadata = {"conversation_id": conversation_id}
-    session_manager.add_message(session_id, "assistant", response_text, assistant_metadata)
-    
-    return {
-        "session_id": session_id,
-        "conversation_id": conversation_id
-    }
-
-# === 调用AI模型处理心理健康对话 ===
-def call_mental_health_agent(user_input, session_id=None, user_uuid=None, conversation_id=None):
-    """调用Coze AI模型处理心理健康对话"""
-    
-    # 如果提供了conversation_id，则使用现有会话，否则创建新会话
-    if not conversation_id:
-        conversation_id = generate_conversation_id()
-    
-    # 构造请求体，特别针对心理健康问题
-    payload = {
-        "conversation_id": conversation_id,
-        "bot_id": BOT_ID,
-        "user": user_uuid or "anonymous_user",
-        "query": user_input,
-        "stream": False
-    }
+    Args:
+        user_uuid: 用户UUID
+        session_id: 会话ID（可为None）
+        user_input: 用户输入
+        ai_response: AI回复
+        
+    Returns:
+        tuple: (实际使用的session_id, conversation_id, 是否创建了新会话)
+    """
+    actual_session_id = session_id
+    is_new_session = False
     
     try:
+        # 如果没有提供session_id，创建新会话
+        if not actual_session_id:
+            session_info = session_manager.create_session(user_uuid, 'mental')
+            if session_info:
+                actual_session_id = session_info['session_id']
+                is_new_session = True
+                logger.info(f"创建新心理健康会话: {actual_session_id}")
+            else:
+                logger.error("创建新心理健康会话失败")
+                return None, None, False
+        else:
+            # 检查会话是否存在且属于当前用户
+            session_info = session_manager.get_session(actual_session_id)
+            if not session_info or session_info['user_uuid'] != user_uuid:
+                logger.warning(f"心理健康会话不存在或不属于当前用户: {actual_session_id}")
+                # 创建新会话
+                session_info = session_manager.create_session(user_uuid, 'mental')
+                if session_info:
+                    actual_session_id = session_info['session_id']
+                    is_new_session = True
+                    logger.info(f"创建新心理健康会话替代无效会话: {actual_session_id}")
+                else:
+                    logger.error("创建新心理健康会话失败")
+                    return None, None, False
+        
+        # 获取或创建conversation_id
+        conversation_id = session_manager.get_or_create_conversation_id(actual_session_id)
+        
+        # 存储用户消息
+        if user_input:
+            session_manager.add_message(actual_session_id, 'user', user_input, {
+                'conversation_id': conversation_id,
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+        
+        # 存储AI回复
+        if ai_response:
+            session_manager.add_message(actual_session_id, 'assistant', ai_response, {
+                'conversation_id': conversation_id,
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+        
+        return actual_session_id, conversation_id, is_new_session
+        
+    except Exception as e:
+        logger.error(f"处理心理健康会话存储异常: {e}")
+        return actual_session_id, None, is_new_session
+
+# === 调用AI模型处理心理健康对话 ===
+def call_mental_health_agent(user_input, session_id=None, user_uuid=None):
+    """调用Coze AI模型处理心理健康对话"""
+    
+    try:
+        # 处理会话存储（仅在提供了user_uuid时）
+        conversation_id = None
+        actual_session_id = session_id
+        is_new_session = False
+        
+        if user_uuid and user_uuid != "anonymous_user":
+            actual_session_id, conversation_id, is_new_session = handle_session_and_storage(
+                user_uuid, session_id, user_input, None  # 先不存储AI回复
+            )
+            
+            if not actual_session_id:
+                logger.error("心理健康会话存储失败")
+                return {
+                    "status": "error",
+                    "message": "心理健康会话管理失败，请重试",
+                    "data": None
+                }
+        
+        # 如果没有conversation_id（匿名用户或新会话），生成一个
+        if not conversation_id:
+            conversation_id = generate_conversation_id()
+        
+        # 构造请求体
+        payload = {
+            "conversation_id": conversation_id,
+            "bot_id": BOT_ID,
+            "user": user_uuid or "anonymous_user",
+            "query": user_input,
+            "stream": False
+        }
+        
         response = requests.post(BASE_URL, headers=headers, data=json.dumps(payload))
         
         if response.status_code != 200:
             logger.error(f"AI模型调用失败: {response.status_code} - {response.text}")
             return {
                 "status": "error",
-                "message": f"心理支持服务暂时不可用，请稍后重试",
+                "message": f"心理健康服务暂时不可用，请稍后重试",
                 "data": None
             }
 
@@ -117,28 +150,48 @@ def call_mental_health_agent(user_input, session_id=None, user_uuid=None, conver
         messages = res.get("messages", [])
 
         # 从返回中提取 answer 类型的消息
+        ai_response = None
         for msg in messages:
             if msg.get("type") == "answer":
                 content = msg.get("content", "").strip()
                 if content:
+                    ai_response = content
                     logger.info(f"心理健康对话处理成功: {user_input[:50]}...")
-                    return {
-                        "status": "success",
-                        "message": "心理健康对话处理完成",
-                        "data": {
-                            "response": content,
-                            "user_input": user_input,
-                            "type": "mental",
-                            "conversation_id": conversation_id
-                        }
-                    }
+                    break
 
         # 如果没有找到有效回复
-        logger.warning("AI模型未返回有效回复")
+        if not ai_response:
+            logger.warning("AI模型未返回有效回复")
+            return {
+                "status": "warning",
+                "message": "心理健康服务暂时无法处理您的请求，请稍后重试",
+                "data": None
+            }
+        
+        # 存储AI回复（仅在提供了user_uuid时）
+        if user_uuid and user_uuid != "anonymous_user":
+            session_manager.add_message(actual_session_id, 'assistant', ai_response, {
+                'conversation_id': conversation_id,
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+
+        # 构建响应数据
+        response_data = {
+            "response": ai_response,
+            "user_input": user_input,
+            "type": "mental",
+            "conversation_id": conversation_id
+        }
+        
+        # 添加会话相关信息（如果适用）
+        if actual_session_id:
+            response_data["session_id"] = actual_session_id
+            response_data["is_new_session"] = is_new_session
+
         return {
-            "status": "warning",
-            "message": "心理支持服务暂时无法处理您的请求，请稍后重试",
-            "data": None
+            "status": "success",
+            "message": "心理健康对话处理完成",
+            "data": response_data
         }
 
     except requests.exceptions.RequestException as e:
@@ -163,146 +216,170 @@ def call_mental_health_agent(user_input, session_id=None, user_uuid=None, conver
             "data": None
         }
 
-# === 心理健康文本对话接口（非流式版本） ===
+# === 非流式对话接口 ===
 @mental_bp.route('/text', methods=['POST'])
-def mental_text_chat():
-    """心理健康文本对话 - 基于AI模型的真实业务逻辑"""
+@token_required
+def mental_text_chat(current_user):
+    """心理健康对话接口（非流式）"""
     
     # 获取请求数据
     data = request.get_json()
     if not data:
         return jsonify({
-            'status': 'error',
-            'message': '请求数据格式错误',
-            'error_code': 'INVALID_REQUEST'
+            "status": "error",
+            "message": "请求体必须为JSON格式"
         }), 400
     
-    user_input = data.get('message')
-    if not user_input:
+    message = data.get('message')
+    if not message:
         return jsonify({
-            'status': 'error',
-            'message': '缺少message字段',
-            'error_code': 'MISSING_FIELD'
+            "status": "error",
+            "message": "message字段不能为空"
         }), 400
     
-    # 获取会话相关参数
+    # 从token中获取user_uuid
+    user_uuid = current_user.get('uuid')
+    if not user_uuid:
+        return jsonify({
+            "status": "error",
+            "message": "用户身份验证失败"
+        }), 401
+    
+    # 获取可选的session_id
     session_id = data.get('session_id')
-    user_uuid = data.get('user_uuid')
     
-    # 获取或创建conversation_id
-    conversation_id = None
-    if session_id:
-        session_manager = SessionManager()
-        conversation_id = session_manager.get_or_create_conversation_id(session_id)
+    # 调用AI模型
+    result = call_mental_health_agent(message, session_id, user_uuid)
     
-    # 调用AI模型处理对话
-    result = call_mental_health_agent(user_input, session_id, user_uuid, conversation_id)
-    
-    # 处理会话和存储
+    # 根据结果状态返回响应
     if result['status'] == 'success':
-        session_info = handle_session_and_storage(
-            user_uuid, 
-            session_id, 
-            user_input, 
-            result['data']['response'],
-            conversation_id
-        )
-        
-        # 更新返回结果，包含会话信息
-        result['data']['session_id'] = session_info['session_id']
-        result['data']['conversation_id'] = session_info['conversation_id']
-    
-    # 返回处理结果
-    if result['status'] == 'success':
-        return jsonify(result)
+        return jsonify(result), 200
+    elif result['status'] == 'warning':
+        return jsonify(result), 200
     else:
         return jsonify(result), 500
 
-# === 心理健康文本对话接口（流式版本） ===
+# === 流式对话接口 ===
 @mental_bp.route('/text/stream', methods=['POST'])
-def mental_text_chat_stream():
-    """心理健康文本对话（流式） - 基于AI模型的真实业务逻辑"""
+@token_required
+def mental_text_chat_stream(current_user):
+    """心理健康对话接口（流式）"""
     
     # 获取请求数据
     data = request.get_json()
     if not data:
         return jsonify({
-            'status': 'error',
-            'message': '请求数据格式错误',
-            'error_code': 'INVALID_REQUEST'
+            "status": "error",
+            "message": "请求体必须为JSON格式"
         }), 400
     
-    user_input = data.get('message')
-    if not user_input:
+    message = data.get('message')
+    if not message:
         return jsonify({
-            'status': 'error',
-            'message': '缺少message字段',
-            'error_code': 'MISSING_FIELD'
+            "status": "error",
+            "message": "message字段不能为空"
         }), 400
     
-    # 获取会话相关参数
+    # 从token中获取user_uuid
+    user_uuid = current_user.get('uuid')
+    if not user_uuid:
+        return jsonify({
+            "status": "error",
+            "message": "用户身份验证失败"
+        }), 401
+    
+    # 获取可选的session_id
     session_id = data.get('session_id')
-    user_uuid = data.get('user_uuid')
     
-    # 获取或创建conversation_id
-    conversation_id = None
-    if session_id:
-        session_manager = SessionManager()
-        conversation_id = session_manager.get_or_create_conversation_id(session_id)
-    else:
-        conversation_id = generate_conversation_id()
+    # 构造流式响应
+    def generate():
+        # 模拟流式响应（实际应调用流式AI接口）
+        result = call_mental_health_agent(message, session_id, user_uuid)
+        
+        if result['status'] == 'success':
+            response_data = result['data']
+            # 模拟分块输出
+            response_text = response_data.get('response', '')
+            chunk_size = 50
+            
+            for i in range(0, len(response_text), chunk_size):
+                chunk = response_text[i:i+chunk_size]
+                yield f"data: {json.dumps({'chunk': chunk, 'type': 'chunk'})}\n\n"
+                
+            # 发送完成信号
+            yield f"data: {json.dumps({'type': 'complete', 'data': response_data})}\n\n"
+        else:
+            yield f"data: {json.dumps({'type': 'error', 'message': result['message']})}\n\n"
     
-    # 构造流式请求体
-    payload = {
-        "conversation_id": conversation_id,
-        "bot_id": BOT_ID,
-        "user": user_uuid or 'anonymous_user',
-        "query": user_input,
-        "stream": True  # 启用流式
-    }
+    return Response(stream_with_context(generate()), mimetype='text/plain')
+
+
+# === 文字转语音接口 ===
+@mental_bp.route('/text-to-speech', methods=['POST'])
+@token_required
+def mental_text_to_speech(current_user):
+    """文字转语音接口 - 将文本转换为MP3音频"""
+    
+    # 获取请求数据
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            "status": "error",
+            "message": "请求体必须为JSON格式"
+        }), 400
+    
+    input_text = data.get('input')
+    if not input_text:
+        return jsonify({
+            "status": "error",
+            "message": "input字段不能为空"
+        }), 400
+    
+    # 检查文本长度（UTF-8编码后不超过1024字节）
+    text_bytes = input_text.encode('utf-8')
+    if len(text_bytes) > 1024:
+        return jsonify({
+            "status": "error",
+            "message": f"输入文本UTF-8编码后长度为{len(text_bytes)}字节，超过最大限制1024字节"
+        }), 400
+    
+    # 获取可选参数
+    voice_id = data.get('voice_id', '7426725529681657907')  # 默认音色ID
+    emotion = data.get('emotion', 'neutral')  # 默认情感类型
+    emotion_scale = data.get('emotion_scale', 3.0)  # 默认情感强度
     
     try:
-        # 直接转发流式响应
-        response = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
+        # 生成任务ID
+        task_id = f"tts_task_{int(time.time())}_{random.randint(1000, 9999)}"
         
-        # 处理会话和存储（异步处理，不阻塞流式响应）
-        def process_session_async():
-            try:
-                # 等待流式响应完成，收集完整响应内容
-                full_response = b""
-                for chunk in response.iter_content(chunk_size=1024):
-                    full_response += chunk
-                
-                # 解析响应内容（这里简化处理，实际需要解析流式数据）
-                response_text = "心理健康流式对话响应"
-                
-                # 处理会话和存储
-                handle_session_and_storage(
-                    user_uuid, 
-                    session_id, 
-                    user_input, 
-                    response_text,
-                    conversation_id
-                )
-            except Exception as e:
-                logger.error(f"流式对话会话处理失败: {e}")
+        # 这里应该调用实际的TTS服务
+        # 由于我们没有真实的TTS服务，这里模拟生成音频文件
+        # 实际实现应该调用如Azure Speech Services、Google Text-to-Speech等TTS服务
+        
+        # 模拟音频生成 - 生成一个简单的MP3文件头（实际应该返回真实的MP3数据）
+        # 这是一个简化的MP3文件头示例
+        mp3_header = b'\xff\xfb\x90\x00'  # MP3文件头
+        
+        # 模拟音频数据（实际应该包含真实的音频内容）
+        audio_data = mp3_header + b'\x00' * 1000  # 模拟1KB的音频数据
         
         # 设置响应头
-        return Response(
-            response.iter_content(chunk_size=1024),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-                'X-Conversation-ID': conversation_id,
-                'X-Session-ID': session_id or ''
-            }
-        )
+        response_headers = {
+            'Content-Type': 'audio/mpeg',
+            'X-Task-Id': task_id,
+            'X-Voice-Id': voice_id,
+            'X-Text-Length': str(len(input_text)),
+            'X-Audio-Format': 'mp3',
+            'X-Timestamp': datetime.datetime.now().isoformat(),
+            'Content-Disposition': f'attachment; filename="tts_{task_id}.mp3"'
+        }
+        
+        # 返回模拟的音频流
+        return Response(audio_data, mimetype='audio/mpeg', headers=response_headers)
         
     except Exception as e:
-        logger.error(f"流式对话失败: {e}")
+        logger.error(f"文字转语音失败: {e}")
         return jsonify({
-            'status': 'error',
-            'message': '流式对话服务暂时不可用',
-            'error_code': 'STREAM_ERROR'
+            "status": "error",
+            "message": "文字转语音服务暂时不可用"
         }), 500

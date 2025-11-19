@@ -30,7 +30,7 @@ except ImportError as e:
 # 获取健康数据接口
 @data_bp.route('', methods=['GET'])
 @token_required
-def get_health_data():
+def get_health_data(current_user):
     """获取健康数据 - 基于数据库的真实业务逻辑"""
     
     # 从token中获取用户UUID
@@ -84,7 +84,7 @@ def get_health_data():
 # 添加健康数据接口
 @data_bp.route('', methods=['POST'])
 @token_required
-def add_health_data():
+def add_health_data(current_user):
     """添加健康数据 - 基于数据库的真实业务逻辑"""
     
     data = request.get_json()
@@ -152,7 +152,7 @@ def add_health_data():
 # 获取健康数据统计接口
 @data_bp.route('/stats', methods=['GET'])
 @token_required
-def get_health_stats():
+def get_health_stats(current_user):
     """获取健康数据统计 - 基于数据库的真实业务逻辑"""
     
     # 从token中获取用户UUID

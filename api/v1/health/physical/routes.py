@@ -32,6 +32,101 @@ headers = {
 def generate_conversation_id():
     return str(uuid.uuid4())
 
+# === 从数据库获取历史会话记录 ===
+def get_chat_history_from_db(session_id):
+    """
+    从数据库获取指定会话的历史记录，最多10轮对话（20条记录）
+    
+    Args:
+        session_id: 会话ID
+        
+    Returns:
+        list: 格式化的chat_history列表，包含role和content字段
+    """
+    try:
+        # 获取会话的所有消息，按时间升序排列
+        messages = session_manager.get_session_messages(session_id, limit=50)
+        
+        if not messages:
+            return []
+        
+        # 过滤出user和assistant类型的消息
+        filtered_messages = [msg for msg in messages if msg['message_type'] in ['user', 'assistant']]
+        
+        # 按时间倒序排列，获取最新的消息
+        filtered_messages.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # 构建成对的对话历史
+        chat_history = []
+        user_message = None
+        
+        for msg in filtered_messages:
+            if msg['message_type'] == 'user':
+                # 如果已经有user消息，说明找到了一个完整的对话轮次
+                if user_message:
+                    # 将assistant消息添加到历史（如果存在）
+                    if chat_history and chat_history[-1]['role'] == 'assistant':
+                        # 已经添加了assistant消息，现在添加user消息
+                        chat_history.append({
+                            "role": "user",
+                            "content": user_message['content'],
+                            "content_type": "text"
+                        })
+                    else:
+                        # 先添加user消息，再添加assistant消息
+                        chat_history.append({
+                            "role": "user",
+                            "content": user_message['content'],
+                            "content_type": "text"
+                        })
+                        # 如果当前消息是user，但还没有对应的assistant，跳过
+                        
+                # 保存当前user消息
+                user_message = msg
+                
+            elif msg['message_type'] == 'assistant' and user_message:
+                # 找到一对完整的对话：user -> assistant
+                # 先添加assistant消息
+                chat_history.append({
+                    "role": "assistant",
+                    "content": msg['content'],
+                    "content_type": "text"
+                })
+                # 再添加user消息
+                chat_history.append({
+                    "role": "user",
+                    "content": user_message['content'],
+                    "content_type": "text"
+                })
+                
+                # 重置user_message，准备下一轮
+                user_message = None
+                
+                # 检查是否达到10轮对话（20条记录）
+                if len(chat_history) >= 20:
+                    break
+        
+        # 处理最后一条user消息（如果没有对应的assistant消息）
+        if user_message and len(chat_history) < 20:
+            chat_history.append({
+                "role": "user",
+                "content": user_message['content'],
+                "content_type": "text"
+            })
+        
+        # 反转列表，使最早的对话在前面（Coze API要求）
+        chat_history.reverse()
+        
+        # 限制最多20条记录
+        chat_history = chat_history[:20]
+        
+        logger.info(f"从数据库获取历史记录成功: session_id={session_id}, 记录数={len(chat_history)}")
+        return chat_history
+        
+    except Exception as e:
+        logger.error(f"获取历史会话记录异常: {e}")
+        return []
+
 # === 处理会话和消息存储 ===
 def handle_session_and_storage(user_uuid, session_id, user_input, ai_response):
     """
@@ -107,6 +202,7 @@ def call_health_agent(user_input, session_id=None, user_uuid=None):
         conversation_id = None
         actual_session_id = session_id
         is_new_session = False
+        chat_history = []  # 初始化chat_history
         
         if user_uuid and user_uuid != "anonymous_user":
             actual_session_id, conversation_id, is_new_session = handle_session_and_storage(
@@ -120,6 +216,10 @@ def call_health_agent(user_input, session_id=None, user_uuid=None):
                     "message": "会话管理失败，请重试",
                     "data": None
                 }
+            
+            # 如果提供了session_id，从数据库获取历史会话记录
+            if actual_session_id:
+                chat_history = get_chat_history_from_db(actual_session_id)
         
         # 如果没有conversation_id（匿名用户或新会话），生成一个
         if not conversation_id:
@@ -133,6 +233,10 @@ def call_health_agent(user_input, session_id=None, user_uuid=None):
             "query": user_input,
             "stream": False
         }
+        
+        # 如果有历史记录，添加到payload中
+        if chat_history:
+            payload["chat_history"] = chat_history
         
         response = requests.post(BASE_URL, headers=headers, data=json.dumps(payload))
         

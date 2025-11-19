@@ -31,7 +31,7 @@ except ImportError:
 # 获取用户信息接口
 @users_bp.route('/profile', methods=['GET'])
 @token_required
-def get_profile():
+def get_profile(current_user):
     """获取用户信息"""
     try:
         # 从请求上下文中获取用户信息
@@ -78,7 +78,7 @@ def get_profile():
 # 更新用户配置接口
 @users_bp.route('/settings', methods=['PUT'])
 @token_required
-def update_settings():
+def update_settings(current_user):
     """更新用户配置"""
     data = request.get_json()
     
