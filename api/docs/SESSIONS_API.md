@@ -137,7 +137,7 @@ if session_response.status_code == 200:
     session_id = session_data['session_id']
     
     # 2. 使用创建的session_id进行健康对话
-    chat_response = requests.post('http://localhost:5000/api/v1/health/physical/text',
+    chat_response = requests.post('http://localhost:5000/api/v1/health/physical/chat',
                                 headers=headers,
                                 json={
                                     'message': '如何制定运动计划？',

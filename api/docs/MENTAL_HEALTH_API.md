@@ -6,12 +6,12 @@
 ## 接口列表
 
 ### 心理健康文本对话（非流式）
-- **接口地址**: `POST /api/v1/health/mental/text`
+- **接口地址**: `POST /api/v1/health/mental/chat`
 - **功能描述**: 心理健康相关的文本对话接口，返回完整响应
 - **请求参数**:
   ```json
   {
-    "message": "string",
+    "text": "string",
     "session_id": "string（可选）"
   }
   ```
@@ -32,12 +32,12 @@
   ```
 
 ### 心理健康文本对话（流式）
-- **接口地址**: `POST /api/v1/health/mental/text/stream`
+- **接口地址**: `POST /api/v1/health/mental/chat/stream`
 - **功能描述**: 心理健康相关的文本对话接口，支持Server-Sent Events流式响应
 - **请求参数**:
   ```json
   {
-    "message": "string",
+    "text": "string",
     "session_id": "string（可选）"
   }
   ```
@@ -51,6 +51,52 @@
   
   event: complete
   data: {"status": "success", "message": "心理健康流式对话完成"}
+  ```
+
+### 文字转语音接口
+- **接口地址**: `POST /api/v1/health/mental/text-to-speech`
+- **功能描述**: 将文本转换为语音，用于心理健康对话的语音回复
+- **请求参数**:
+  ```json
+  {
+    "text": "需要转换为语音的文本内容"
+  }
+  ```
+- **响应格式**:
+  ```json
+  {
+    "status": "success",
+    "message": "语音合成成功",
+    "data": {
+      "audio": "base64编码的音频数据",
+      "text": "原始文本",
+      "type": "mental"
+    }
+  }
+  ```
+
+### 情绪分析接口
+- **接口地址**: `POST /api/v1/health/mental/emotion-analysis`
+- **功能描述**: 分析用户输入文本的情绪状态
+- **请求参数**:
+  ```json
+  {
+    "text": "需要分析情绪的文本",
+    "session_id": "string（可选）"
+  }
+  ```
+- **响应格式**:
+  ```json
+  {
+    "status": "success",
+    "message": "情绪分析完成",
+    "data": {
+      "emotion_analysis": "情绪分析结果",
+      "input_text": "原始文本",
+      "session_id": "会话ID",
+      "token_usage": "token使用量"
+    }
+  }
   ```
 
 ## 支持的健康话题
@@ -89,8 +135,8 @@
 import requests
 
 # 心理健康非流式对话（首次请求，创建新会话）
-response = requests.post('http://localhost:5000/api/v1/health/mental/text', json={
-    'message': '我最近感觉很焦虑，有什么缓解方法？'
+response = requests.post('http://localhost:5000/api/v1/health/mental/chat', json={
+    'text': '我最近感觉很焦虑，有什么缓解方法？'
 })
 
 if response.status_code == 200:
@@ -101,8 +147,8 @@ if response.status_code == 200:
     print(f"会话ID: {session_id}, 对话ID: {conversation_id}, 是否新会话: {is_new}")
     
     # 继续对话（使用相同session_id，系统自动绑定conversation_id）
-    response2 = requests.post('http://localhost:5000/api/v1/health/mental/text', json={
-        'message': '焦虑时应该怎么调整心态？',
+    response2 = requests.post('http://localhost:5000/api/v1/health/mental/chat', json={
+        'text': '焦虑时应该怎么调整心态？',
         'session_id': session_id
     })
     
@@ -112,8 +158,8 @@ if response.status_code == 200:
         print(f"继续对话，是否新会话: {is_new2}")
 
 # 心理健康流式对话
-response = requests.post('http://localhost:5000/api/v1/health/mental/text/stream', 
-                       json={'message': '如何应对工作压力？'}, stream=True)
+response = requests.post('http://localhost:5000/api/v1/health/mental/chat/stream', 
+                       json={'text': '如何应对工作压力？'}, stream=True)
 ```
 
 ## 注意事项

@@ -12,13 +12,13 @@ Authorization: Bearer <access_token>
 ## 接口列表
 
 ### 身体健康文本对话（非流式）
-- **接口地址**: `POST /api/v1/health/physical/text`
+- **接口地址**: `POST /api/v1/health/physical/chat`
 - **功能描述**: 身体健康相关的文本对话接口，返回完整响应
 - **认证要求**: JWT token认证
 - **请求参数**:
   ```json
   {
-    "message": "string",
+    "text": "string",
     "session_id": "string（可选）"
   }
   ```
@@ -39,13 +39,13 @@ Authorization: Bearer <access_token>
   ```
 
 ### 身体健康文本对话（流式）
-- **接口地址**: `POST /api/v1/health/physical/text/stream`
+- **接口地址**: `POST /api/v1/health/physical/chat/stream`
 - **功能描述**: 身体健康相关的文本对话接口，支持Server-Sent Events流式响应
 - **认证要求**: JWT token认证
 - **请求参数**:
   ```json
   {
-    "message": "string",
+    "text": "string",
     "session_id": "string（可选）"
   }
   ```
@@ -111,9 +111,9 @@ if login_response.status_code == 200:
     headers = {'Authorization': f'Bearer {access_token}'}
     
     # 3. 身体健康非流式对话（首次请求，创建新会话）
-    response = requests.post('http://localhost:5000/api/v1/health/physical/text', 
+    response = requests.post('http://localhost:5000/api/v1/health/physical/chat', 
                            headers=headers,
-                           json={'message': '我最近经常头痛，应该注意什么？'})
+                           json={'text': '我最近经常头痛，应该注意什么？'})
     
     if response.status_code == 200:
         result = response.json()
@@ -122,10 +122,10 @@ if login_response.status_code == 200:
         print(f"会话ID: {session_id}, 是否新会话: {is_new}")
         
         # 4. 继续对话（使用相同session_id）
-        response2 = requests.post('http://localhost:5000/api/v1/health/physical/text',
+        response2 = requests.post('http://localhost:5000/api/v1/health/physical/chat',
                                 headers=headers,
                                 json={
-                                    'message': '头痛时应该吃什么药？',
+                                    'text': '头痛时应该吃什么药？',
                                     'session_id': session_id
                                 })
         
@@ -135,9 +135,9 @@ if login_response.status_code == 200:
             print(f"继续对话，是否新会话: {is_new2}")
 
 # 身体健康流式对话
-response = requests.post('http://localhost:5000/api/v1/health/physical/text/stream', 
+response = requests.post('http://localhost:5000/api/v1/health/physical/chat/stream', 
                        headers=headers,
-                       json={'message': '运动后肌肉酸痛怎么办？'}, 
+                       json={'text': '运动后肌肉酸痛怎么办？'}, 
                        stream=True)
 ```
 

@@ -151,6 +151,59 @@ def token_required(f):
     return decorated_function
 
 
+def token_optional(f):
+    """
+    JWT token可选验证装饰器
+    
+    如果提供了token则验证，否则使用匿名用户
+    
+    Args:
+        f: 被装饰的函数
+        
+    Returns:
+        function: 装饰后的函数
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 从请求头获取token
+        auth_header = request.headers.get('Authorization')
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            # 有token，进行验证
+            token = auth_header.split(' ')[1]
+            payload = verify_token(token)
+            
+            if payload and payload.get('type') == 'access':
+                # 验证成功，创建用户信息
+                current_user = {
+                    'uuid': payload['uuid'],
+                    'username': payload['username']
+                }
+                request.uuid = payload['uuid']
+                request.username = payload['username']
+            else:
+                # token无效，使用匿名用户
+                current_user = {
+                    'uuid': 'anonymous_user',
+                    'username': 'anonymous'
+                }
+                request.uuid = 'anonymous_user'
+                request.username = 'anonymous'
+        else:
+            # 没有token，使用匿名用户
+            current_user = {
+                'uuid': 'anonymous_user',
+                'username': 'anonymous'
+            }
+            request.uuid = 'anonymous_user'
+            request.username = 'anonymous'
+        
+        # 将用户信息作为参数传递给被装饰函数
+        return f(current_user, *args, **kwargs)
+    
+    return decorated_function
+
+
 def refresh_token(refresh_token):
     """
     刷新access token

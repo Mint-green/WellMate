@@ -181,7 +181,7 @@ if response.status_code == 200:
     print(f"用户信息: {user_info}")
 
 # 访问身体健康会话接口（需要认证）
-response = requests.post('http://localhost:5000/api/v1/health/physical/text', 
+response = requests.post('http://localhost:5000/api/v1/health/physical/chat', 
                        headers=headers,
                        json={'message': '头痛咨询'})
 if response.status_code == 200:

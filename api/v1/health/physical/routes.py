@@ -12,7 +12,7 @@ import os
 import logging
 import datetime
 from . import physical_bp
-from utils.jwt_utils import token_required
+from utils.jwt_utils import token_required, token_optional
 from ..sessions.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -319,7 +319,7 @@ def call_health_agent(user_input, session_id=None, user_uuid=None):
         }
 
 # === 非流式对话接口 ===
-@physical_bp.route('/text', methods=['POST'])
+@physical_bp.route('/chat', methods=['POST'])
 @token_required
 def physical_text_chat(current_user):
     """身体健康对话接口（非流式）"""
@@ -332,26 +332,23 @@ def physical_text_chat(current_user):
             "message": "请求体必须为JSON格式"
         }), 400
     
-    message = data.get('message')
-    if not message:
+    user_input = data.get('text')
+    if not user_input:
         return jsonify({
             "status": "error",
-            "message": "message字段不能为空"
+            "message": "text字段不能为空"
         }), 400
     
-    # 从token中获取user_uuid
-    user_uuid = current_user.get('uuid')
-    if not user_uuid:
-        return jsonify({
-            "status": "error",
-            "message": "用户身份验证失败"
-        }), 401
+    # 获取用户UUID（如果已登录）
+    user_uuid = None
+    if current_user and isinstance(current_user, dict) and 'uuid' in current_user:
+        user_uuid = current_user['uuid']
     
     # 获取可选的session_id
     session_id = data.get('session_id')
     
     # 调用AI模型
-    result = call_health_agent(message, session_id, user_uuid)
+    result = call_health_agent(user_input, session_id, user_uuid)
     
     # 根据结果状态返回响应
     if result['status'] == 'success':
@@ -362,7 +359,7 @@ def physical_text_chat(current_user):
         return jsonify(result), 500
 
 # === 流式对话接口 ===
-@physical_bp.route('/text/stream', methods=['POST'])
+@physical_bp.route('/chat/stream', methods=['POST'])
 @token_required
 def physical_text_chat_stream(current_user):
     """身体健康对话接口（流式）"""
@@ -375,20 +372,17 @@ def physical_text_chat_stream(current_user):
             "message": "请求体必须为JSON格式"
         }), 400
     
-    message = data.get('message')
-    if not message:
+    user_input = data.get('text')
+    if not user_input:
         return jsonify({
             "status": "error",
-            "message": "message字段不能为空"
+            "message": "text字段不能为空"
         }), 400
     
-    # 从token中获取user_uuid
-    user_uuid = current_user.get('uuid')
-    if not user_uuid:
-        return jsonify({
-            "status": "error",
-            "message": "用户身份验证失败"
-        }), 401
+    # 获取用户UUID（如果已登录）
+    user_uuid = None
+    if current_user and isinstance(current_user, dict) and 'uuid' in current_user:
+        user_uuid = current_user['uuid']
     
     # 获取可选的session_id
     session_id = data.get('session_id')
@@ -396,7 +390,7 @@ def physical_text_chat_stream(current_user):
     # 构造流式响应
     def generate():
         # 模拟流式响应（实际应调用流式AI接口）
-        result = call_health_agent(message, session_id, user_uuid)
+        result = call_health_agent(user_input, session_id, user_uuid)
         
         if result['status'] == 'success':
             response_data = result['data']
