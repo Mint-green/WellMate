@@ -23,8 +23,12 @@ app = Flask(__name__)
 app.config['DEBUG'] = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # 配置日志级别
-log_level = os.getenv('LOG_LEVEL', 'DEBUG')
+log_level = os.getenv('LOG_LEVEL', 'INFO')
 logging.basicConfig(level=getattr(logging, log_level.upper()))
+
+# 优化MySQL连接器日志级别，减少详细调试信息
+mysql_logger = logging.getLogger('mysql.connector')
+mysql_logger.setLevel(logging.WARNING)
 
 # 注册所有蓝图
 register_blueprints(app)

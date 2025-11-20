@@ -88,21 +88,41 @@ curl -X GET "http://localhost:5000/api/v1/health/data/stats?period=monthly" \
 
 ### 9. 身体健康对话（非流式）
 ```bash
-curl -X POST http://localhost:5000/api/v1/health/physical/text \
+curl -X POST http://localhost:5000/api/v1/health/physical/chat \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "我最近经常头痛，应该注意什么？"
+    "text": "我最近经常头痛，应该注意什么？"
   }'
 ```
 
 ### 10. 身体健康对话（流式）
 ```bash
-curl -X POST http://localhost:5000/api/v1/health/physical/text/stream \
+curl -X POST http://localhost:5000/api/v1/health/physical/chat/stream \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "运动后肌肉酸痛怎么办？"
+    "text": "运动后肌肉酸痛怎么办？"
+  }'
+```
+
+### 11. 心理健康对话（非流式）
+```bash
+curl -X POST http://localhost:5000/api/v1/health/mental/chat \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "我最近感觉很焦虑，有什么缓解方法？"
+  }'
+```
+
+### 12. 心理健康对话（流式）
+```bash
+curl -X POST http://localhost:5000/api/v1/health/mental/chat/stream \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "如何应对工作压力？"
   }'
 ```
 
@@ -245,11 +265,11 @@ curl -X GET http://localhost:5000/api/v1/users/profile \
   -H "Authorization: Bearer $token"
 
 # 5. 身体健康对话（首次请求，创建新会话）
-response=$(curl -s -X POST http://localhost:5000/api/v1/health/physical/text \
+response=$(curl -s -X POST http://localhost:5000/api/v1/health/physical/chat \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "我最近经常头痛，应该注意什么？"
+    "text": "我最近经常头痛，应该注意什么？"
   }')
 
 # 6. 提取会话ID和对话ID
@@ -259,11 +279,11 @@ is_new_session=$(echo $response | grep -o '"is_new_session":[^,}]*' | cut -d':' 
 echo "会话ID: $session_id, 对话ID: $conversation_id, 是否新会话: $is_new_session"
 
 # 7. 继续对话（使用会话ID，系统自动绑定conversation_id）
-response2=$(curl -s -X POST http://localhost:5000/api/v1/health/physical/text \
+response2=$(curl -s -X POST http://localhost:5000/api/v1/health/physical/chat \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "头痛时应该吃什么药？",
+    "text": "头痛时应该吃什么药？",
     "session_id": "'$session_id'"
   }')
 

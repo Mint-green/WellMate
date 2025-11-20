@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # 设置构建参数用于注入版本信息
 ARG BUILD_TIMESTAMP="unknown"
@@ -8,9 +8,16 @@ ARG BUILD_TAG="unknown"
 ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 ENV BUILD_TAG=${BUILD_TAG}
 
+# 更新包管理器并安装必要的系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 COPY . .
 
 # 创建版本信息文件
