@@ -185,8 +185,18 @@ class DatabaseConnector:
                 cursor.close()
                 connection.close()
 
-# 全局数据库连接实例
-db_connector = DatabaseConnector()
+# 延迟初始化全局数据库连接实例
+_db_connector_instance = None
+
+def get_db_connector():
+    """Get database connector instance (lazy initialization)"""
+    global _db_connector_instance
+    if _db_connector_instance is None:
+        _db_connector_instance = DatabaseConnector()
+    return _db_connector_instance
+
+# 保持向后兼容
+db_connector = get_db_connector()
 # EOF
 # mv /app/utils/db_connector.py.fixed /app/utils/db_connector.py
 # echo "已修复db_connector.py文件"
