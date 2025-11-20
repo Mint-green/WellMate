@@ -9,7 +9,7 @@ def test_physical_chat():
     
     # 测试数据
     test_data = {
-        "message": "我最近经常感到疲劳，有什么建议吗？"
+        "text": "我最近经常感到疲劳，有什么建议吗？"
     }
     
     print("正在测试物理健康对话接口...")
@@ -48,7 +48,7 @@ def test_physical_chat_stream():
     
     # 测试数据
     test_data = {
-        "message": "我想了解如何改善睡眠质量？"
+        "text": "我想了解如何改善睡眠质量？"
     }
     
     print("\n" + "=" * 50)

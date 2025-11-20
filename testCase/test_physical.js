@@ -9,7 +9,7 @@ function testPhysicalChat() {
     
     // 测试数据
     const postData = JSON.stringify({
-        message: '我最近经常感到疲劳，有什么建议吗？'
+        text: '我最近经常感到疲劳，有什么建议吗？'
     });
     
     const options = {
@@ -64,7 +64,7 @@ function testPhysicalChatStream() {
     
     // 测试数据
     const postData = JSON.stringify({
-        message: '我想了解如何改善睡眠质量？'
+        text: '我想了解如何改善睡眠质量？'
     });
     
     const options = {
