@@ -1,4 +1,4 @@
-# 健康助手后端部署系统
+# WellMate后端部署系统
 
 ## 概述
 
@@ -125,11 +125,11 @@ port=8000
    ```
 
 ### ACR仓库配置（示例）
-- **仓库地址**: `crpi-t94140ki6zwcf0xb.cn-shenzhen.personal.cr.aliyuncs.com/hku-projects/health-assistant-backend`
+- **仓库地址**: `crpi-t94140ki6zwcf0xb.cn-shenzhen.personal.cr.aliyuncs.com/hku-projects/wellmate-backend`
 - **用户名**: `docker-op@1011858784784063`
 
 ### 容器配置（示例）
-- **容器名称**: `health-assistant-backend`
+- **容器名称**: `wellmate-backend`
 - **端口映射**: `5000:5000`
 - **重启策略**: `unless-stopped`
 

@@ -1,4 +1,4 @@
-# MySQL容器化部署方案
+# WellMate MySQL部署系统
 
 ## 概述
 
@@ -15,8 +15,15 @@ deploy_mysql/
 ├── mysql_config/           # MySQL配置文件目录
 ├── init_sql/               # 数据库初始化脚本目录
 │   ├── 01_create_users_table.sql    # 用户表创建脚本
-│   └── 02_insert_test_users.sql     # 测试用户数据脚本
-└── backups/                # 数据库备份目录
+│   ├── 02_create_chat_history_tables.sql  # 聊天历史表创建脚本
+│   ├── 02_insert_test_users.sql     # 测试用户数据脚本
+│   ├── 03_grant_remote_access.sql   # 远程访问授权脚本
+│   └── 04_add_indexes.sql           # 索引添加脚本
+├── migrations/             # 数据库迁移脚本目录
+│   ├── 001_add_conversation_id_to_chat_sessions.sql
+│   └── 002_add_mental_session_type.sql
+├── backups/                # 数据库备份目录
+└── README.md              # 说明文档
 ```
 
 ## 快速开始
@@ -62,25 +69,32 @@ chmod +x init_mysql.sh mysql_manager.sh
 ```bash
 # Docker相关配置
 MYSQL_IMAGE=mysql:8.0           # MySQL镜像版本
-CONTAINER_NAME=wellmate_mysql  # 容器名称
-NETWORK_NAME=wellmate_network  # Docker网络名称
+CONTAINER_NAME=wellmate_mysql   # 容器名称
+NETWORK_NAME=wellmate_network   # Docker网络名称
+
+# 内存限制 (针对低内存环境优化)
+CONTAINER_MEMORY_LIMIT=768m     # 容器内存限制
+CONTAINER_MEMORY_SWAP=1g        # 容器交换内存限制
 
 # MySQL配置 (生产环境必须修改密码)
 MYSQL_ROOT_PASSWORD=your_secure_root_password_here  # root用户密码
-MYSQL_DATABASE=wellmate    # 默认创建的数据库名
-MYSQL_USER=wellmateuser             # 普通用户用户名
-MYSQL_PASSWORD=your_secure_user_password_here         # 普通用户密码
+MYSQL_DATABASE=wellmate         # 默认创建的数据库名
+MYSQL_USER=your_database_user   # 普通用户用户名
+MYSQL_PASSWORD=your_secure_user_password_here  # 普通用户密码
+
+# MySQL性能优化配置 (低内存环境)
+MYSQL_CONFIG_FILE=./mysql_config/my.cnf  # MySQL配置文件路径
 
 # 端口映射 (宿主机端口:容器端口)
-HOST_PORT=3306
-CONTAINER_PORT=3306
+HOST_PORT=3306                # 宿主机端口
+CONTAINER_PORT=3306           # 容器内部端口
 
 # 数据持久化路径 (请根据实际环境修改)
-DATA_VOLUME_PATH=./mysql_data
-CONFIG_VOLUME_PATH=./mysql_config
+DATA_VOLUME_PATH=./mysql_data     # MySQL数据目录
+CONFIG_VOLUME_PATH=./mysql_config # MySQL配置文件目录
 
 # 初始化脚本路径
-INIT_SQL_PATH=./init_sql
+INIT_SQL_PATH=./init_sql          # 数据库初始化脚本目录
 ```
 
 ## 容器管理
@@ -122,7 +136,10 @@ INIT_SQL_PATH=./init_sql
 
 ### init_sql目录说明
 - **01_create_users_table.sql**: 创建用户表结构
+- **02_create_chat_history_tables.sql**: 创建聊天历史相关表
 - **02_insert_test_users.sql**: 插入测试用户数据
+- **03_grant_remote_access.sql**: 远程访问授权
+- **04_add_indexes.sql**: 添加数据库索引
 
 ### 初始化脚本执行机制
 

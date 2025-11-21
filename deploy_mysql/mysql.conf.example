@@ -1,24 +1,31 @@
-# MySQL Container Configuration Example
+# WellMate MySQL容器配置示例
 # 请复制此文件为 mysql.conf 并根据实际环境修改配置
 
 # Docker相关配置
-MYSQL_IMAGE=mysql:8.0
-CONTAINER_NAME=wellmate_mysql
-NETWORK_NAME=wellmate_network
+MYSQL_IMAGE=mysql:8.0           # MySQL镜像版本
+CONTAINER_NAME=wellmate_mysql    # 容器名称
+NETWORK_NAME=wellmate_network    # Docker网络名称
+
+# 内存限制 (针对低内存环境优化)
+CONTAINER_MEMORY_LIMIT=768m      # 容器内存限制
+CONTAINER_MEMORY_SWAP=1g         # 容器交换内存限制
 
 # MySQL配置 (生产环境必须修改密码)
-MYSQL_ROOT_PASSWORD=your_secure_root_password_here
-MYSQL_DATABASE=wellmate
-MYSQL_USER=wellmateuser
-MYSQL_PASSWORD=your_secure_user_password_here
+MYSQL_ROOT_PASSWORD=your_secure_root_password_here  # root用户密码
+MYSQL_DATABASE=wellmate          # 默认创建的数据库名
+MYSQL_USER=your_database_user          # 普通用户用户名
+MYSQL_PASSWORD=your_secure_user_password_here  # 普通用户密码
+
+# MySQL性能优化配置 (低内存环境)
+MYSQL_CONFIG_FILE=./mysql_config/my.cnf  # MySQL配置文件路径
 
 # 端口映射 (宿主机端口:容器端口)
-HOST_PORT=3306
-CONTAINER_PORT=3306
+HOST_PORT=3306                # 宿主机端口
+CONTAINER_PORT=3306           # 容器内部端口
 
 # 数据持久化路径 (请根据实际环境修改)
-DATA_VOLUME_PATH=./mysql_data
-CONFIG_VOLUME_PATH=./mysql_config
+DATA_VOLUME_PATH=./mysql_data     # MySQL数据目录
+CONFIG_VOLUME_PATH=./mysql_config # MySQL配置文件目录
 
 # 初始化脚本路径
-INIT_SQL_PATH=./init_sql
+INIT_SQL_PATH=./init_sql          # 数据库初始化脚本目录
