@@ -1,0 +1,827 @@
+<template>
+  <view class="chat-container">
+    <!-- 顶部导航栏 -->
+    <view class="header">
+      <view class="header-left">
+        <text class="app-name">WellMate AI</text>
+        <text class="app-subtitle">健康助手</text>
+      </view>
+      <view class="header-right">
+        <button class="icon-btn" @click="toggleSessionList">
+          <text class="icon">📋</text>
+        </button>
+        <button class="icon-btn" @click="navigateToHealth">
+          <text class="icon">❤️</text>
+        </button>
+      </view>
+    </view>
+    
+    <!-- 会话列表侧边栏 -->
+    <view class="session-sidebar" :class="{ active: showSessionList }">
+      <view class="sidebar-header">
+        <text class="sidebar-title">历史会话</text>
+        <button class="close-btn" @click="toggleSessionList">×</button>
+      </view>
+      
+      <view class="session-list">
+        <view 
+          v-for="session in sessions" 
+          :key="session.id"
+          class="session-item"
+          :class="{ active: currentSessionId === session.id }"
+          @click="switchSession(session.id)"
+        >
+          <text class="session-title">{{ session.title }}</text>
+          <text class="session-time">{{ formatTime(session.updatedAt) }}</text>
+          <button class="delete-btn" @click.stop="deleteSession(session.id)">
+            <text class="icon">🗑️</text>
+          </button>
+        </view>
+        
+        <view v-if="sessions.length === 0" class="empty-sessions">
+          <text class="empty-text">暂无历史会话</text>
+        </view>
+      </view>
+      
+      <button class="new-session-btn" @click="createNewSession">
+        <text class="icon">+</text>
+        <text>新建对话</text>
+      </button>
+    </view>
+    
+    <!-- 遮罩层 -->
+    <view 
+      class="mask" 
+      :class="{ active: showSessionList }"
+      @click="toggleSessionList"
+    ></view>
+    
+    <!-- 消息区域 -->
+    <scroll-view 
+      class="message-container" 
+      scroll-y 
+      :scroll-top="scrollTop"
+      @scroll="onScroll"
+    >
+      <view class="messages">
+        <view 
+          v-for="message in currentMessages" 
+          :key="message.id"
+          class="message"
+          :class="message.role"
+        >
+          <view class="avatar">
+            <template v-if="message.role === 'user'">
+              <image class="avatar-image" src="/static/id_image.jpg" mode="aspectFit"></image>
+            </template>
+            <template v-else>
+              <text class="avatar-icon">🤖</text>
+            </template>
+          </view>
+          <view class="message-content">
+            <text class="message-text">{{ message.content }}</text>
+            <text class="message-time">{{ formatTime(message.timestamp) }}</text>
+          </view>
+        </view>
+        
+        <view v-if="currentMessages.length === 0" class="welcome-message">
+          <text class="welcome-title">欢迎使用 WellMate AI</text>
+          <text class="welcome-subtitle">我是您的健康助手，可以帮您：</text>
+          <view class="suggestions">
+            <text class="suggestion">• 分析健康数据</text>
+            <text class="suggestion">• 提供健康建议</text>
+            <text class="suggestion">• 解答健康疑问</text>
+            <text class="suggestion">• 制定健康计划</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 加载状态 -->
+      <view v-if="isLoading" class="loading-message">
+        <view class="avatar">
+          <text class="avatar-icon">🤖</text>
+        </view>
+        <view class="message-content">
+          <view class="typing-indicator">
+            <text class="dot"></text>
+            <text class="dot"></text>
+            <text class="dot"></text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    
+    <!-- 输入区域 -->
+    <view class="input-container">
+      <view class="input-wrapper">
+        <textarea 
+          class="message-input"
+          v-model="inputMessage"
+          placeholder="输入您的问题..."
+          :maxlength="1000"
+          :adjust-position="false"
+          @confirm="sendMessage"
+        />
+        <button 
+          class="send-btn" 
+          :disabled="!inputMessage.trim() || isLoading"
+          @click="sendMessage"
+        >
+          <text class="send-icon">📤</text>
+        </button>
+      </view>
+      
+      <!-- 快捷建议 -->
+      <view class="quick-suggestions">
+        <text 
+          v-for="suggestion in quickSuggestions" 
+          :key="suggestion"
+          class="suggestion-tag"
+          @click="useSuggestion(suggestion)"
+        >
+          {{ suggestion }}
+        </text>
+      </view>
+    </view>
+
+    <!-- 底部悬浮tab栏 -->
+    <view class="bottom-tab-bar">
+      <view class="tab-item" :class="{ active: currentTab === 'health' }" @click="switchTab('health')">
+        <text class="tab-icon">🏥</text>
+        <text class="tab-text">健康</text>
+      </view>
+      <view class="tab-item" :class="{ active: currentTab === 'chat' }" @click="switchTab('chat')">
+        <text class="tab-icon">🤖</text>
+        <text class="tab-text">问AI</text>
+      </view>
+      <view class="tab-item" :class="{ active: currentTab === 'mine' }" @click="switchTab('mine')">
+        <text class="tab-icon">👤</text>
+        <text class="tab-text">我的</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, reactive, onMounted } from 'vue'
+import { ChatMessage, ChatSession } from '@/utils/api-service.uts'
+import sessionManager from '@/utils/session-manager.uts'
+import apiService from '@/utils/api-service.uts'
+import { t } from '@/utils/i18n/i18n.uts'
+
+// 响应式数据
+const showSessionList = ref(false)
+const inputMessage = ref('')
+const isLoading = ref(false)
+const scrollTop = ref(0)
+const currentSessionId = ref<string | null>(null)
+
+const sessions = ref<ChatSession[]>([])
+const currentMessages = ref<ChatMessage[]>([])
+
+// 快捷建议
+const quickSuggestions = [
+  '今天的健康建议',
+  '分析我的睡眠质量',
+  '如何提高免疫力',
+  '适合我的运动计划'
+]
+
+// 生命周期
+onMounted(() => {
+  loadSessions()
+  // 如果没有当前会话，创建一个新的
+  if (!currentSessionId.value) {
+    createNewSession()
+  }
+})
+
+// 加载会话列表
+const loadSessions = () => {
+  // 只加载健康类型的会话
+  sessions.value = sessionManager.getSessions('health')
+  
+  // 设置当前会话
+  const currentSession = sessionManager.getCurrentSession('health')
+  if (currentSession) {
+    currentSessionId.value = currentSession.id
+    currentMessages.value = currentSession.messages
+  }
+}
+
+// 切换会话列表显示
+const toggleSessionList = () => {
+  showSessionList.value = !showSessionList.value
+}
+
+// 创建新会话
+const createNewSession = () => {
+  const session = sessionManager.createNewSession(undefined, 'health')
+  currentSessionId.value = session.id
+  currentMessages.value = []
+  loadSessions()
+}
+
+// 切换会话
+const switchSession = (sessionId: string) => {
+  if (sessionManager.setCurrentSession(sessionId, 'health')) {
+    currentSessionId.value = sessionId
+    const session = sessionManager.getCurrentSession('health')
+    if (session) {
+      currentMessages.value = session.messages
+    }
+    showSessionList.value = false
+    scrollToBottom()
+  }
+}
+
+// 删除会话
+const deleteSession = (sessionId: string) => {
+  // 关闭侧边栏，确保确认框在最上层显示
+  showSessionList.value = false
+  
+  // 直接显示确认框
+  uni.showModal({
+    title: t('delete_confirm'),
+    content: t('delete_content'),
+    cancelText: t('cancel'),
+    confirmText: t('confirm'),
+    success: (res) => {
+      if (res.confirm) {
+        if (sessionManager.deleteSession(sessionId, 'health')) {
+          loadSessions()
+          // 如果删除的是当前会话，创建新会话
+          if (currentSessionId.value === sessionId) {
+            createNewSession()
+          }
+        }
+      }
+    }
+  })
+}
+
+// 发送消息
+const sendMessage = async () => {
+  const message = inputMessage.value.trim()
+  if (!message || isLoading.value) return
+  
+  // 添加用户消息
+  const userMessage: ChatMessage = {
+    id: 'msg_' + Date.now(),
+    role: 'user',
+    content: message,
+    timestamp: Date.now()
+  }
+  
+  sessionManager.addMessageToCurrentSession(userMessage, 'health')
+  currentMessages.value = [...currentMessages.value, userMessage]
+  inputMessage.value = ''
+  isLoading.value = true
+  
+  scrollToBottom()
+  
+  try {
+    // 调用API发送消息
+    const response = await apiService.sendMessage(message, currentSessionId.value)
+    
+    if (response.code === 200 && response.data) {
+      const assistantMessage: ChatMessage = {
+        id: 'msg_' + Date.now(),
+        role: 'assistant',
+        content: response.data.content,
+        timestamp: Date.now()
+      }
+      
+      sessionManager.addMessageToCurrentSession(assistantMessage, 'health')
+      currentMessages.value = [...currentMessages.value, assistantMessage]
+    } else {
+      // 模拟回复（开发阶段）
+      const mockMessage: ChatMessage = {
+        id: 'msg_' + Date.now(),
+        role: 'assistant',
+        content: `收到您的健康咨询："${message}"。我是WellMate AI健康助手，可以为您提供专业的健康建议和分析。`,
+        timestamp: Date.now()
+      }
+      
+      sessionManager.addMessageToCurrentSession(mockMessage, 'health')
+      currentMessages.value = [...currentMessages.value, mockMessage]
+    }
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    
+    // 错误处理
+    const errorMessage: ChatMessage = {
+      id: 'msg_' + Date.now(),
+      role: 'assistant',
+      content: '抱歉，暂时无法连接到服务。请检查网络连接后重试。',
+      timestamp: Date.now()
+    }
+    
+    sessionManager.addMessageToCurrentSession(errorMessage, 'health')
+    currentMessages.value = [...currentMessages.value, errorMessage]
+  }
+  
+  isLoading.value = false
+  scrollToBottom()
+}
+
+// 使用快捷建议
+const useSuggestion = (suggestion: string) => {
+  inputMessage.value = suggestion
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+  setTimeout(() => {
+    scrollTop.value = 999999 // 足够大的值确保滚动到底部
+  }, 100)
+}
+
+// 滚动事件
+const onScroll = (e: any) => {
+  // 可以在这里实现滚动加载更多消息
+}
+
+// 格式化时间
+const formatTime = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - timestamp
+  
+  if (diff < 60 * 1000) {
+    return '刚刚'
+  } else if (diff < 60 * 60 * 1000) {
+    return Math.floor(diff / (60 * 1000)) + '分钟前'
+  } else if (diff < 24 * 60 * 60 * 1000) {
+    return Math.floor(diff / (60 * 60 * 1000)) + '小时前'
+  } else {
+    return date.getMonth() + 1 + '月' + date.getDate() + '日'
+  }
+}
+
+// 跳转到健康数据页面（首页）
+const navigateToHealth = () => {
+  uni.switchTab({
+    url: '/pages/index/index'
+  })
+}
+
+// 当前选中的tab
+const currentTab = ref('chat')
+
+// 切换tab
+const switchTab = (tab) => {
+  currentTab.value = tab
+  if (tab === 'health') {
+    uni.redirectTo({
+      url: '/pages/index/index'
+    })
+  } else if (tab === 'mine') {
+    uni.redirectTo({
+      url: '/pages/mine/mine'
+    })
+  }
+}
+</script>
+
+<style scoped>
+.chat-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 头部样式 */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.1);
+  z-index: 999;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-name {
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.app-subtitle {
+  font-size: 24rpx;
+  opacity: 0.9;
+  margin-top: 5rpx;
+}
+
+.header-right {
+  display: flex;
+  gap: 20rpx;
+}
+
+.icon-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  font-size: 28rpx;
+}
+
+/* 会话侧边栏 */
+.session-sidebar {
+  position: fixed;
+  top: 0;
+  left: -600rpx;
+  width: 600rpx;
+  height: 100vh;
+  background: white;
+  box-shadow: 2rpx 0 10rpx rgba(0,0,0,0.1);
+  z-index: 1000;
+  transition: left 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-sidebar.active {
+  left: 0;
+}
+
+.sidebar-header {
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-title {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 40rpx;
+  color: #999;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.session-item {
+  padding: 25rpx 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  position: relative;
+}
+
+.session-item.active {
+  background: #f8f9ff;
+}
+
+.session-title {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.session-time {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.delete-btn {
+  position: absolute;
+  right: 20rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  opacity: 0.5;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.empty-sessions {
+  padding: 100rpx 30rpx;
+  text-align: center;
+}
+
+.empty-text {
+  color: $uni-text-color-grey;
+  font-size: 28rpx;
+}
+
+.new-session-btn {
+  margin: 30rpx;
+  padding: 25rpx;
+  background: $uni-color-primary;
+  color: white;
+  border: none;
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+}
+
+/* 遮罩层 */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: $uni-bg-color-mask;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.mask.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 消息区域 */
+.message-container {
+  flex: 1;
+  padding: 150rpx 20rpx 180rpx;
+}
+
+.messages {
+  min-height: 100%;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 30rpx;
+  align-items: flex-start;
+}
+
+.message.user {
+  align-items: flex-end;
+}
+
+.avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: $uni-color-primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 10rpx;
+}
+
+.message.user .avatar {
+  background: $uni-color-success;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.avatar-icon {
+  font-size: 36rpx;
+}
+
+.message-content {
+  max-width: 500rpx;
+  background: white;
+  border-radius: 20rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(92, 64, 51, 0.1);
+  word-wrap: break-word;
+}
+
+.message.user .message-content {
+  background: $uni-color-primary;
+  color: white;
+}
+
+.message-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.message-time {
+  font-size: 22rpx;
+  color: $uni-text-color-grey;
+  margin-top: 10rpx;
+  display: block;
+}
+
+.message.user .message-time {
+  color: rgba(255,255,255,0.7);
+}
+
+.welcome-message {
+  text-align: center;
+  padding: 100rpx 30rpx;
+}
+
+.welcome-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: $uni-text-color;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.welcome-subtitle {
+  font-size: 28rpx;
+  color: $uni-text-color-grey;
+  display: block;
+  margin-bottom: 30rpx;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 15rpx;
+  align-items: center;
+}
+
+.suggestion {
+  font-size: 26rpx;
+  color: $uni-color-primary;
+}
+
+.loading-message {
+  display: flex;
+  margin-bottom: 30rpx;
+  gap: 20rpx;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 8rpx;
+  align-items: center;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: $uni-text-color-grey;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  30% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* 输入区域 */
+.input-container {
+  position: fixed;
+  bottom: 120rpx;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1rpx solid $uni-border-color;
+  padding: 20rpx;
+  z-index: 999;
+}
+
+.input-wrapper {
+  display: flex;
+  gap: 20rpx;
+  align-items: flex-end;
+}
+
+.message-input {
+  flex: 1;
+  background: $uni-bg-color-grey;
+  border: 1rpx solid $uni-border-color;
+  border-radius: 20rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  min-height: 80rpx;
+  max-height: 200rpx;
+}
+
+.send-btn {
+  background: $uni-color-primary;
+  border: none;
+  border-radius: 50%;
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-btn:disabled {
+  background: $uni-text-color-disable;
+}
+
+.send-icon {
+  font-size: 32rpx;
+  color: white;
+}
+
+.quick-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15rpx;
+  margin-top: 20rpx;
+}
+
+.suggestion-tag {
+  background: #f5f0e6;
+  color: $uni-color-primary;
+  padding: 12rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+}
+
+/* 底部悬浮tab栏 */
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: #ffffff;
+  display: flex;
+  height: 100rpx;
+  border-top: 1rpx solid $uni-border-color;
+  box-shadow: 0 -2rpx 10rpx rgba(92, 64, 51, 0.1);
+  z-index: 1000;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 15rpx 0;
+  transition: all 0.3s ease;
+}
+
+.tab-item.active {
+  color: $uni-color-primary;
+}
+
+.tab-item.active .tab-icon {
+  color: $uni-color-primary;
+}
+
+.tab-item.active .tab-text {
+  color: $uni-color-primary;
+}
+
+.tab-icon {
+  font-size: 36rpx;
+  margin-bottom: 8rpx;
+  color: $uni-text-color-grey;
+}
+
+.tab-text {
+  font-size: 22rpx;
+  color: $uni-text-color-grey;
+}
+</style>

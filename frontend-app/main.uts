@@ -1,0 +1,16 @@
+import App from './App.uvue'
+
+import { createSSRApp } from 'vue'
+// 导入国际化工具
+import { t } from './utils/i18n/i18n.uts'
+
+export function createApp() {
+	const app = createSSRApp(App)
+	
+	// 注册全局翻译函数
+	app.config.globalProperties.$t = t
+	
+	return {
+		app
+	}
+}

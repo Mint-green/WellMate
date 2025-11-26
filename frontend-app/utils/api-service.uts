@@ -1,0 +1,224 @@
+/**
+ * AI健康助手API服务层
+ * 独立封装后端接口调用，便于调整实际调用的后端
+ */
+
+import envConfig from './env-config.uts'
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+}
+
+export interface ChatSession {
+  id: string
+  title: string
+  messages: ChatMessage[]
+  createdAt: number
+  updatedAt: number
+  type: 'health' | 'mental'
+}
+
+export interface HealthData {
+  steps: number
+  sleepHours: number
+  heartRate: number
+  bloodPressure: string
+  calories: number
+  waterIntake: number
+  date: string
+}
+
+export interface ApiResponse<T> {
+  code: number
+  message: string
+  data: T
+}
+
+class ApiService {
+  // 后端API基础URL - 从环境配置中获取
+  private baseURL = envConfig.getEnvConfig().baseURL
+  private healthAPIPrefix = envConfig.getEnvConfig().healthAPIPrefix
+  private mentalAPIPrefix = envConfig.getEnvConfig().mentalAPIPrefix
+  
+  // AI对话相关接口
+  async sendMessage(message: string, sessionId?: string): Promise<ApiResponse<ChatMessage>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/chat/message`,
+        method: 'POST',
+        data: {
+          message: message,
+          session_id: sessionId
+        },
+        header: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      return response.data as ApiResponse<ChatMessage>
+    } catch (error) {
+      console.error('发送消息失败:', error)
+      throw error
+    }
+  }
+  
+  // 身体健康文本对话接口（调用指定后端）
+  async sendHealthMessage(message: string, sessionId?: string): Promise<any> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}${this.healthAPIPrefix}/text`,
+        method: 'POST',
+        data: {
+          message: message,
+          session_id: sessionId
+        },
+        header: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${envConfig.getEnvConfig().ACCESS_TOKEN}`
+        }
+      })
+      
+      return response.data
+    } catch (error) {
+      console.error('发送健康消息失败:', error)
+      throw error
+    }
+  }
+  
+  // 心理健康文本对话接口（调用指定后端）
+  async sendMentalMessage(message: string, sessionId?: string): Promise<any> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}${this.mentalAPIPrefix}/chat`,
+        method: 'POST',
+        data: {
+          text: message,
+          session_id: sessionId
+        },
+        header: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${envConfig.ACCESS_TOKEN}`
+        }
+      })
+      
+      return response.data
+    } catch (error) {
+      console.error('发送心理健康消息失败:', error)
+      throw error
+    }
+  }
+  
+  // 获取历史会话列表
+  async getChatSessions(): Promise<ApiResponse<ChatSession[]>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/chat/sessions`,
+        method: 'GET'
+      })
+      
+      return response.data as ApiResponse<ChatSession[]>
+    } catch (error) {
+      console.error('获取会话列表失败:', error)
+      throw error
+    }
+  }
+  
+  // 获取特定会话详情
+  async getChatSession(sessionId: string): Promise<ApiResponse<ChatSession>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/chat/sessions/${sessionId}`,
+        method: 'GET'
+      })
+      
+      return response.data as ApiResponse<ChatSession>
+    } catch (error) {
+      console.error('获取会话详情失败:', error)
+      throw error
+    }
+  }
+  
+  // 删除会话
+  async deleteChatSession(sessionId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/chat/sessions/${sessionId}`,
+        method: 'DELETE'
+      })
+      
+      return response.data as ApiResponse<void>
+    } catch (error) {
+      console.error('删除会话失败:', error)
+      throw error
+    }
+  }
+  
+  // 健康数据相关接口
+  async getHealthData(date?: string): Promise<ApiResponse<HealthData>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/health/data`,
+        method: 'GET',
+        data: {
+          date: date || new Date().toISOString().split('T')[0]
+        }
+      })
+      
+      return response.data as ApiResponse<HealthData>
+    } catch (error) {
+      console.error('获取健康数据失败:', error)
+      throw error
+    }
+  }
+  
+  // 同步小米健康数据
+  async syncXiaomiHealth(): Promise<ApiResponse<void>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/health/sync/xiaomi`,
+        method: 'POST'
+      })
+      
+      return response.data as ApiResponse<void>
+    } catch (error) {
+      console.error('同步小米健康数据失败:', error)
+      throw error
+    }
+  }
+  
+  // 同步华为健康数据
+  async syncHuaweiHealth(): Promise<ApiResponse<void>> {
+    try {
+      const response = await uni.request({
+        url: `${this.baseURL}/health/sync/huawei`,
+        method: 'POST'
+      })
+      
+      return response.data as ApiResponse<void>
+    } catch (error) {
+      console.error('同步华为健康数据失败:', error)
+      throw error
+    }
+  }
+  
+  // 模拟数据 - 用于开发测试
+  getMockHealthData(): HealthData {
+    return {
+      steps: Math.floor(Math.random() * 15000),
+      sleepHours: Math.floor(Math.random() * 4) + 6,
+      heartRate: Math.floor(Math.random() * 40) + 60,
+      bloodPressure: `${Math.floor(Math.random() * 40) + 110}/${Math.floor(Math.random() * 30) + 70}`,
+      calories: Math.floor(Math.random() * 3000) + 1500,
+      waterIntake: Math.floor(Math.random() * 3) + 1,
+      date: new Date().toISOString().split('T')[0]
+    }
+  }
+}
+
+// 导出单例实例
+export const apiService = new ApiService()
+
+export default apiService

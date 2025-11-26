@@ -1,0 +1,25 @@
+<template>
+  <view class="webview-container">
+    <web-view :src="url"></web-view>
+  </view>
+</template>
+
+<script setup>
+import { ref, onLoad } from 'vue'
+
+const url = ref('')
+
+onLoad((options) => {
+  if (options && options.url) {
+    // 解码URL
+    url.value = decodeURIComponent(options.url)
+  }
+})
+</script>
+
+<style scoped>
+.webview-container {
+  width: 100%;
+  height: 100vh;
+}
+</style>

@@ -1,0 +1,67 @@
+/**
+ * 环境配置文件
+ * 管理应用的各种环境变量
+ */
+
+// 环境枚举
+export type Environment = 'development' | 'production' | 'test';
+
+// 环境配置接口
+export interface EnvConfig {
+  environment: Environment;
+  baseURL: string;
+  healthAPIPrefix: string;
+  mentalAPIPrefix: string;
+}
+
+// 不同环境的配置
+const configs: Record<Environment, EnvConfig> = {
+  development: {
+    environment: 'development',
+    baseURL: 'http://localhost:5000',
+    healthAPIPrefix: '/api/v1/health/physical',
+    mentalAPIPrefix: '/api/v1/health/mental'
+  },
+  production: {
+    environment: 'production',
+    baseURL: 'http://47.113.206.45:5000',
+    healthAPIPrefix: '/api/v1/health/physical',
+    mentalAPIPrefix: '/api/v1/health/mental'
+  },
+  test: {
+    environment: 'test',
+    baseURL: 'http://47.113.206.45:5000',
+    healthAPIPrefix: '/api/v1/health/physical',
+    mentalAPIPrefix: '/api/v1/health/mental'
+  }
+};
+
+// 获取当前环境
+const getCurrentEnvironment = (): Environment => {
+  return 'production';
+  // 在H5环境下可以通过location.hostname判断
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'development';
+    }
+  }
+  
+  // 在uni-app中可以通过manifest.json或其他方式判断
+  // 这里我们默认返回生产环境
+  return 'production';
+};
+
+// 获取当前环境配置
+export const getEnvConfig = (): EnvConfig => {
+  const env = getCurrentEnvironment();
+  return configs[env];
+};
+
+// 访问令牌 - 当前为调试用的固定值
+export const ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiYTdndGQ1M2ItYzJiYi0xMWYwLWFhM2MtMDI0MmFjMTg0NzIzIiwidXNlcm5hbWUiOiJ0ZXN0cmVkIiwiZXhwIjoxNzY0MjQyMzY3LCJpYXQiOjE3NjQxNTU5NjcsInR5cGUiOiJhY2Nlc3MifQ.jZ9YVZTAFpvQ9XEpzkzxJ0IfFii2p_acImxKKOVvlgw';
+
+export default {
+  getEnvConfig,
+  ACCESS_TOKEN
+};

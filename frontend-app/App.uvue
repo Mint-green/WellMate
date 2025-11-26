@@ -1,0 +1,126 @@
+<script lang="uts">
+  // #ifdef APP-ANDROID || APP-HARMONY
+	let firstBackTime = 0
+  // #endif
+  	// 导入国际化工具
+	import { initLanguage, t, switchLanguage, getCurrentLanguage } from './utils/i18n/i18n.uts'
+	export default {
+		onLaunch: function () {
+	console.log('WellMate AI 应用启动')
+		// 初始化国际化
+		initLanguage()
+		// 检查登录状态
+		this.checkLoginStatus()
+		// 初始化应用数据
+		this.initApp()
+		// 设置tabBar名称
+		this.setTabBarNames()
+	},
+		onShow: function () {
+			console.log('App Show')
+		},
+		onHide: function () {
+			console.log('App Hide')
+		},
+		// #ifdef APP-ANDROID || APP-HARMONY
+		onLastPageBackPress: function () {
+			console.log('App LastPageBackPress')
+			if (firstBackTime == 0) {
+				uni.showToast({
+					title: '再按一次退出应用',
+					position: 'bottom',
+				})
+				firstBackTime = Date.now()
+				setTimeout(() => {
+					firstBackTime = 0
+				}, 2000)
+			} else if (Date.now() - firstBackTime < 2000) {
+				firstBackTime = Date.now()
+				uni.exit()
+			}
+		},
+		// #endif
+		onExit: function () {
+			console.log('App Exit')
+		},
+		
+		methods: {
+		checkLoginStatus() {
+			// 检查本地存储的登录状态
+			const isLoggedIn = uni.getStorageSync('isLoggedIn')
+			if (!isLoggedIn) {
+				// 如果未登录，跳转到登录页面
+				uni.reLaunch({
+					url: '/pages/login/login'
+				})
+			}
+		},
+		
+		initApp() {
+			// 检查用户权限
+			this.checkPermissions()
+			// 初始化健康数据同步
+			this.initHealthDataSync()
+		},
+			
+			checkPermissions() {
+			// 检查必要的权限（网络、存储等）
+			console.log('检查应用权限')
+		},
+			
+		initHealthDataSync() {
+			// 初始化健康数据同步设置
+			console.log('初始化健康数据同步')
+		},
+			
+		setTabBarNames() {
+			// 动态设置tabBar名称
+			uni.setTabBarItem({
+				index: 0,
+				text: t('common.home')
+			})
+			uni.setTabBarItem({
+				index: 1,
+				text: t('common.health')
+			})
+			uni.setTabBarItem({
+				index: 2,
+				text: t('common.mental')
+			})
+			uni.setTabBarItem({
+				index: 3,
+				text: t('common.mine')
+			})
+		}
+		}
+	}
+</script>
+
+<style>
+	/*每个页面公共css */
+	.uni-row {
+		flex-direction: row;
+	}
+
+	.uni-column {
+		flex-direction: column;
+	}
+	
+	/* 全局背景设置 */
+	page {
+		/* 设置chat_background.jpg作为背景图片 */
+		background-image: url('~@/static/chat_background.jpg');
+		/* 确保背景图片布满整个屏幕 */
+		background-size: cover;
+		/* 背景图片居中显示 */
+		background-position: center;
+		/* 背景图片不重复 */
+		background-repeat: no-repeat;
+		/* 添加透明度控制，这里通过rgba颜色叠加实现半透明效果 */
+		background-color: rgba(255, 255, 255, 0);
+		/* 将背景图片与背景色混合，实现半透明图片效果 */
+		background-blend-mode: overlay;
+		/* 固定背景图片，不随内容滚动 */
+		background-attachment: fixed;
+	}
+</style>

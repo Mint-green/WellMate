@@ -1,0 +1,199 @@
+<template>
+  <view class="login-container">
+    <view class="login-header">
+      <image class="logo" src="/static/logo_noname.png" mode="aspectFit"></image>
+      <text class="app-name">WellMate</text>
+      <text class="slogan">{{ $t('app.slogan') }}</text>
+    </view>
+    
+    <view class="login-form">
+      <view class="form-group">
+        <text class="form-label">{{ $t('username') }}</text>
+        <input 
+          class="form-input" 
+          type="text" 
+          v-model="username" 
+          :placeholder="$t('enter_username')"
+          placeholder-class="placeholder"
+        />
+      </view>
+      
+      <view class="form-group">
+        <text class="form-label">{{ $t('password') }}</text>
+        <input 
+          class="form-input" 
+          type="password" 
+          v-model="password" 
+          :placeholder="$t('enter_password')"
+          placeholder-class="placeholder"
+        />
+      </view>
+      
+      <button 
+        class="login-btn" 
+        @click="login"
+      >
+        {{ $t('login_btn') }}
+      </button>
+      
+      <view class="form-footer">
+        <text class="register" @click="register">{{ $t('register_link') }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+// 登录表单数据
+const username = ref('')
+const password = ref('')
+
+// 登录方法
+const login = () => {
+  // 添加用户名和密码验证
+  if (!username.value) {
+    uni.showToast({
+      title: $t('enter_username'),
+      icon: 'none'
+    })
+    return
+  }
+  
+  if (!password.value) {
+    uni.showToast({
+      title: $t('enter_password'),
+      icon: 'none'
+    })
+    return
+  }
+  
+  // 这里可以添加实际的登录逻辑，例如调用API
+  console.log('登录请求:', { username: username.value, password: password.value })
+  
+  // 模拟登录成功
+  uni.setStorageSync('isLoggedIn', true)
+  uni.setStorageSync('username', username.value)
+  
+  // 登录成功后跳转到数据概要页面
+  uni.switchTab({
+    url: '/pages/index/index'
+  })
+}
+
+// 注册方法
+const register = () => {
+  uni.navigateTo({
+    url: '/pages/register/register'
+  })
+}
+</script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 0 40rpx;
+}
+
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 80rpx;
+}
+
+.logo {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 20rpx;
+}
+
+.app-name {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: $uni-text-color;
+  margin-bottom: 10rpx;
+}
+
+.slogan {
+  font-size: 28rpx;
+  color: $uni-text-color-grey;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 500rpx;
+}
+
+.form-group {
+  margin-bottom: 70rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 32rpx;
+  color: $uni-text-color;
+  margin-bottom: 10rpx;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: #ffffff;
+  border: 1rpx solid $uni-border-color;
+  border-radius: 8rpx;
+  font-size: 34rpx;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.placeholder {
+  color: $uni-text-color-placeholder;
+  font-size: 28rpx;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.login-btn {
+  width: 100%;
+  height: 80rpx;
+  /* 当前颜色：珊瑚粉 */
+  background: #f9b8dae3;
+  color: #515151;
+  font-size: 34rpx;
+  font-weight: 600;
+  border: none;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+  opacity: 1;
+  /* 添加阴影效果 */
+  box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20rpx;
+  width: 100%;
+}
+
+.register {
+  font-size: 30rpx;
+  color: $uni-color-primary;
+  cursor: pointer;
+  text-align: right;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+</style>

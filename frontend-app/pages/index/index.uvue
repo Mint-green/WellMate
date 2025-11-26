@@ -1,0 +1,901 @@
+<template>
+  <view class="container">
+    <!-- 顶部应用名称 -->
+    <view class="app-header">
+      <text class="app-title">{{ $t('home_data_summary') }}</text>
+    </view>
+    
+    <!-- 健康数据图表区域 -->
+    <view class="chart-section">
+      <view class="date-picker-container">
+        <text class="nav-btn prev-btn" @click="goToPrevDay">←</text>
+        <view class="date-display" @mousewheel="onWheel" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+          <text class="section-title">{{ formatDate(currentDate) }}</text>
+        </view>
+        <text class="nav-btn next-btn" @click="goToNextDay">→</text>
+      </view>
+      <view class="chart-container">
+        <!-- 小米风格同心双环图表 -->
+        <view class="chart-container">
+          <view class="ring-container">
+            <!-- 外环 - 步数 -->
+            <view class="outer-ring">
+              <view class="ring-bg"></view>
+              <view class="ring-progress" :style="{ transform: 'rotate(' + ((stepProgress * 360) - 180) + 'deg)' }"></view>
+            </view>
+            <!-- 内环 - 运动量 -->
+            <view class="inner-ring">
+              <view class="ring-bg"></view>
+              <view class="ring-progress" :style="{ transform: 'rotate(' + ((exerciseProgress * 360) - 180) + 'deg)' }"></view>
+            </view>
+            <!-- 中心数据区域 -->
+            <view class="chart-center">
+              <view class="data-group">
+                <text class="data-value">8,000</text>
+                <text class="data-label">/10000</text>
+                <text class="data-percentage">Today's Steps</text>
+              </view>
+              <view class="data-group">
+                <text class="data-value">85%</text>
+                <text class="data-label">{{ $t('home_exercise_duration') }}</text>
+                <text class="data-target">{{ $t('home_target') }} 100%</text>
+                <text class="data-percentage">{{ Math.round(exerciseProgress * 100) }}%</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 健康指标卡片流 -->
+    <view class="health-cards">
+      <view class="cards-grid">
+        <view class="health-card" @click="showSleepDetail">
+          <view class="card-icon sleep-icon">😴</view>
+          <view class="card-content">
+            <text class="card-value">8.2h</text>
+            <text class="card-label">{{ $t('home_sleep_duration') }}</text>
+          </view>
+        </view>
+        
+        <view class="health-card" @click="showHeartRateDetail">
+          <view class="card-icon heart-icon">❤️</view>
+          <view class="card-content">
+            <text class="card-value">72</text>
+            <text class="card-label">{{ $t('home_heart_rate') }}</text>
+          </view>
+        </view>
+        
+        <view class="health-card" @click="showStepsDetail">
+          <view class="card-icon steps-icon">👣</view>
+          <view class="card-content">
+            <text class="card-value">8,000</text>
+            <text class="card-label">{{ $t('home_steps') }}</text>
+          </view>
+        </view>
+        
+        <view class="health-card" @click="showBloodOxygenDetail">
+          <view class="card-icon oxygen-icon" style="font-size: 48rpx; font-weight: bold;">O₂</view>
+          <view class="card-content">
+            <text class="card-value">98%</text>
+            <text class="card-label">{{ $t('home_blood_oxygen') }}</text>
+          </view>
+        </view>
+        
+        <view class="health-card" @click="showStressDetail">
+          <view class="card-icon stress-icon">⚡</view>
+          <view class="card-content">
+            <text class="card-value">58</text>
+            <text class="card-label">{{ $t('home_stress_index') }}</text>
+          </view>
+        </view>
+        
+        <view class="health-card" @click="showMoodDetail">
+          <view class="card-icon mood-icon">😊</view>
+          <view class="card-content">
+            <text class="card-value">{{ $t('home_mood_good') }}</text>
+            <text class="card-label">{{ $t('home_mood_status') }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 心情雷达图区域 -->
+    <view class="mood-chart-section">
+      <text class="section-title">{{ $t('home_today_mood') }}</text>
+      <view class="mood-chart-container" @click="showMoodAnalysis">
+        <view class="radar-chart">
+          <!-- 雷达图网格 -->
+          <view class="radar-grid">
+            <view class="radar-circle"></view>
+            <view class="radar-circle"></view>
+            <view class="radar-circle"></view>
+            <view class="radar-line" style="transform: rotate(0deg)"></view>
+            <view class="radar-line" style="transform: rotate(40deg)"></view>
+            <view class="radar-line" style="transform: rotate(80deg)"></view>
+            <view class="radar-line" style="transform: rotate(120deg)"></view>
+            <view class="radar-line" style="transform: rotate(160deg)"></view>
+            <view class="radar-line" style="transform: rotate(200deg)"></view>
+            <view class="radar-line" style="transform: rotate(240deg)"></view>
+            <view class="radar-line" style="transform: rotate(280deg)"></view>
+            <view class="radar-line" style="transform: rotate(320deg)"></view>
+          </view>
+          
+          <!-- 雷达图数据点 -->
+          <view class="radar-data">
+              <view class="radar-shape" :style="{
+                clipPath: 'polygon(50% 10%, 70% 20%, 85% 35%, 80% 60%, 50% 80%, 20% 60%, 15% 35%, 30% 20%, 50% 35%, 50% 10%)'
+              }"></view>
+            <view class="radar-point happy" style="top: 10%; left: 50%"></view>
+            <view class="radar-point excited" style="top: 20%; left: 70%"></view>
+            <view class="radar-point surprised" style="top: 35%; left: 85%"></view>
+            <view class="radar-point angry" style="top: 60%; left: 80%"></view>
+            <view class="radar-point fear" style="top: 80%; left: 50%"></view>
+            <view class="radar-point sad" style="top: 60%; left: 20%"></view>
+            <view class="radar-point hate" style="top: 35%; left: 15%"></view>
+            <view class="radar-point coldness" style="top: 20%; left: 30%"></view>
+            <view class="radar-point neutral" style="top: 35%; left: 50%"></view>
+          </view>
+          
+          <!-- 雷达图标签 - 放置在雷达图内部 -->
+          <view class="radar-labels">
+            <text class="radar-label happy" style="top: 15%; left: 50%; transform: translateX(-50%)">happy</text>
+            <text class="radar-label excited" style="top: 25%; left: 75%; transform: translateX(-50%)">excited</text>
+            <text class="radar-label surprised" style="top: 40%; left: 85%; transform: translateX(-50%)">surprised</text>
+            <text class="radar-label angry" style="top: 65%; left: 80%; transform: translateX(-50%)">angry</text>
+            <text class="radar-label fear" style="top: 85%; left: 50%; transform: translateX(-50%)">fear</text>
+            <text class="radar-label sad" style="top: 65%; left: 20%; transform: translateX(-50%)">sad</text>
+            <text class="radar-label hate" style="top: 40%; left: 15%; transform: translateX(-50%)">hate</text>
+            <text class="radar-label coldness" style="top: 25%; left: 25%; transform: translateX(-50%)">coldness</text>
+            <text class="radar-label neutral" style="top: 30%; left: 50%; transform: translateX(-50%)">neutral</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 今日心情总结 -->
+      <view class="mood-summary">
+        <text class="summary-title">{{ $t('home_mood_summary') }}:<text class="summary-highlight-mood">Happy</text></text>
+        <text class="summary-content">
+          Your overall mood today is positive, with high levels of happiness, accompanied by slight excitement and neutral emotions. It is recommended to continue maintaining your current lifestyle and participate in activities that bring you joy.
+        </text>
+      </view>
+    </view>
+    
+    <!-- 底部导航栏 -->
+    <view class="bottom-nav">
+      <view class="nav-item active" @click="navigateToPage('/pages/index/index')">
+        <text class="nav-icon">📊</text>
+        <text class="nav-text">{{ $t('common.home') }}</text>
+      </view>
+      <view class="nav-item" @click="navigateToPage('/pages/physical/physical')">
+        <text class="nav-icon">🩺</text>
+        <text class="nav-text">{{ $t('common.health') }}</text>
+      </view>
+      <view class="nav-item" @click="navigateToPage('/pages/mental/mental')">
+        <text class="nav-icon">🧠</text>
+        <text class="nav-text">{{ $t('common.mental') }}</text>
+      </view>
+      <view class="nav-item" @click="navigateToPage('/pages/mine/mine')">
+        <text class="nav-icon">👤</text>
+        <text class="nav-text">{{ $t('common.mine') }}</text>
+      </view>
+    </view>
+
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, onMounted } from 'vue'
+
+// 日期相关
+const currentDate = ref(new Date('2025-11-19'))
+// 触摸事件相关
+const startY = ref(0)
+const moveY = ref(0)
+const touchThreshold = 50 // 触摸滑动阈值
+
+// 进度数据
+const stepProgress = ref(0.8) // 8000/10000
+const exerciseProgress = ref(0.85) // 85%
+
+// 格式化日期为 YYYY.MM.DD 格式
+const formatDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}.${month}.${day}`
+}
+
+// 前往前一天
+const goToPrevDay = () => {
+  currentDate.value = new Date(currentDate.value.getTime() - 24 * 60 * 60 * 1000)
+  updateDataForDate(currentDate.value)
+}
+
+// 前往后一天
+const goToNextDay = () => {
+  currentDate.value = new Date(currentDate.value.getTime() + 24 * 60 * 60 * 1000)
+  updateDataForDate(currentDate.value)
+}
+
+// 鼠标滚轮事件处理
+const onWheel = (e) => {
+  if (e.deltaY > 0) {
+    // 向下滚动，切换到前一天
+    goToPrevDay()
+  } else {
+    // 向上滚动，切换到后一天
+    goToNextDay()
+  }
+}
+
+// 触摸事件处理
+const onTouchStart = (e) => {
+  startY.value = e.touches[0].clientY
+}
+
+const onTouchMove = (e) => {
+  moveY.value = e.touches[0].clientY
+}
+
+const onTouchEnd = () => {
+  const diffY = moveY.value - startY.value
+  if (Math.abs(diffY) > touchThreshold) {
+    // 只有滑动距离超过阈值才处理
+    if (diffY > 0) {
+      // 向下滑动，切换到前一天
+      goToPrevDay()
+    } else {
+      // 向上滑动，切换到后一天
+      goToNextDay()
+    }
+  }
+  // 重置触摸位置
+  startY.value = 0
+  moveY.value = 0
+}
+
+// 根据日期更新数据（模拟）
+const updateDataForDate = (date) => {
+  // 这里可以根据日期从服务器获取数据
+  // 目前使用固定数据
+  stepProgress.value = 0.8 // 80%
+  exerciseProgress.value = 0.1 // 30%
+}
+
+
+
+// 页面显示时初始化数据
+onMounted(() => {
+  updateDataForDate(currentDate.value)
+})
+
+// 显示睡眠详情
+const showSleepDetail = () => {
+  uni.navigateTo({
+    url: '/pages/sleep/sleep'
+  })
+}
+
+// 显示心率详情
+const showHeartRateDetail = () => {
+  uni.navigateTo({
+    url: '/pages/heartrate/heartrate'
+  })
+}
+
+// 显示步数详情
+const showStepsDetail = () => {
+  uni.navigateTo({
+    url: '/pages/steps/steps'
+  })
+}
+
+// 显示血氧饱和度详情
+const showBloodOxygenDetail = () => {
+  // 这里可以跳转到血氧饱和度详情页面
+  console.log('显示血氧饱和度详情')
+}
+
+// 显示压力详情
+const showStressDetail = () => {
+  // 这里可以跳转到压力详情页面
+  console.log('显示压力详情')
+}
+
+// 显示心情详情
+const showMoodDetail = () => {
+  // 这里可以跳转到心情详情页面
+  console.log('显示心情详情')
+}
+
+// 显示心情解析
+const showMoodAnalysis = () => {
+  // 心情解析现在直接显示在页面上，无需弹出模态框
+}
+
+// 页面显示时初始化数据
+onShow(() => {
+  // 模拟数据加载动画
+  setTimeout(() => {
+    stepProgress.value = 0.75
+    exerciseProgress.value = 0.85
+  }, 300)
+})
+
+// 页面导航
+const navigateToPage = (url) => {
+  // 判断是否为tabBar页面
+  const tabBarPages = ['/pages/index/index', '/pages/physical/physical', '/pages/mental/mental', '/pages/mine/mine']
+  if (tabBarPages.includes(url)) {
+    uni.switchTab({
+      url: url
+    })
+  } else {
+    uni.navigateTo({
+      url: url
+    })
+  }
+}
+</script>
+
+<style scoped>
+.container {
+  padding: 40rpx 30rpx 120rpx 30rpx;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 顶部应用名称 */
+.app-header {
+  padding: 40rpx 0 30rpx 0;
+  border-bottom: 1rpx solid #e9ecef;
+  margin-bottom: 40rpx;
+}
+
+.app-title {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #2c3e50;
+  display: block;
+  text-align: left;
+}
+
+/* 图表区域 */
+.chart-section {
+  margin-bottom: 40rpx;
+}
+
+.date-picker-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  margin-bottom: 30rpx;
+  flex-direction: row;
+}
+
+.nav-btn {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #3498db;
+  padding: 10rpx 20rpx;
+  border-radius: 8rpx;
+  background-color: #f8f9fa;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  transition: all 0.2s;
+}
+
+.nav-btn:active {
+  background-color: #e9ecef;
+  transform: scale(0.95);
+}
+
+.date-display {
+  cursor: pointer;
+  user-select: none;
+  padding: 20rpx;
+  border-radius: 10rpx;
+  transition: background-color 0.2s;
+}
+
+.date-display:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+}
+
+.chart-container {
+  padding: 0 40rpx;
+  margin-bottom: 40rpx;
+}
+
+.ring-container {
+  width: 500rpx;
+  height: 250rpx;
+  position: relative;
+  margin: 0 auto;
+}
+
+.outer-ring {
+  position: absolute;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.outer-ring .ring-bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 24rpx solid #f5f5f5;
+  border: 24rpx solid #3498db;
+  border-bottom: none;
+  border-radius: 250rpx 250rpx 0 0;
+  box-sizing: border-box;
+}
+
+.outer-ring .ring-progress {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 24rpx solid transparent;
+  border-top: 24rpx solid #3498db;
+  border-top: 24rpx solid #f5f5f5;
+  border-radius: 50%;
+  box-sizing: border-box;
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  /* 确保最左边的点始终被覆盖 */
+  clip-path: polygon(0% 0%, 100% 0%, 100% 50%, 0% 50%);
+}
+
+.inner-ring {
+  position: absolute;
+  width: 360rpx;
+  height: 360rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  top: 70rpx;
+  left: 70rpx;
+}
+
+.inner-ring .ring-bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 20rpx solid #f5f5f5;
+  border: 20rpx solid #e74c3c;
+  border-bottom: none;
+  border-radius: 180rpx 180rpx 0 0;
+  box-sizing: border-box;
+}
+
+.inner-ring .ring-progress {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 20rpx solid transparent;
+  border-top: 20rpx solid #e74c3c;
+  border-top: 20rpx solid #f5f5f5;
+  border-radius: 50%;
+  box-sizing: border-box;
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  /* 确保最左边的点始终被覆盖 */
+  clip-path: polygon(0% 0%, 100% 0%, 100% 50%, 0% 50%);
+}
+
+.chart-center {
+  position: absolute;
+  top: 125rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  z-index: 10;
+}
+
+.data-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.data-value {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: $uni-text-color;
+  display: block;
+  line-height: 1.2;
+}
+
+.data-label {
+  font-size: 22rpx;
+  color: $uni-text-color-grey;
+  display: block;
+  margin-top: 4rpx;
+  line-height: 1.2;
+}
+
+.data-target {
+  font-size: 18rpx;
+  color: $uni-text-color-placeholder;
+  display: block;
+  margin-bottom: 6rpx;
+  line-height: 1.2;
+}
+
+.data-percentage {
+  font-size: 22rpx;
+  font-weight: bold;
+  color: $uni-color-primary;
+  display: block;
+  line-height: 1.2;
+}
+
+.data-group:last-child .data-percentage {
+  color: $uni-color-error;
+}
+
+/* 健康卡片流 */
+.health-cards {
+  flex: 1;
+  margin-top: 40rpx;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+  padding: 0 20rpx;
+}
+
+.health-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 30rpx 25rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 12rpx rgba(92, 64, 51, 0.08);
+  transition: all 0.3s ease;
+}
+
+.health-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.12);
+}
+
+.card-icon {
+  font-size: 48rpx;
+  margin-bottom: 10rpx;
+  width: 60rpx;
+  text-align: center;
+}
+
+.card-content {
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-value {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: $uni-text-color;
+  display: block;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.card-label {
+  font-size: 24rpx;
+  color: $uni-text-color-grey;
+  display: block;
+  margin-top: 4rpx;
+  text-align: center;
+}
+
+.card-arrow {
+  font-size: 32rpx;
+  color: #bdc3c7;
+  font-weight: bold;
+}
+
+/* 心情雷达图区域 */
+.mood-chart-section {
+  margin: 60rpx 20rpx 40rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 50rpx 30rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92, 64, 51, 0.08);
+  overflow: visible;
+}
+
+.mood-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 30rpx 0;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  overflow: visible;
+  position: relative;
+}
+
+.mood-chart-container:active {
+  transform: scale(0.98);
+}
+
+.radar-chart {
+  width: 400rpx;
+  height: 400rpx;
+  position: relative;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.radar-grid {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+}
+
+.radar-circle {
+  position: absolute;
+  border: 2rpx solid #ffb3d9;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.radar-circle:nth-child(1) {
+  width: 320rpx;
+  height: 320rpx;
+}
+
+.radar-circle:nth-child(2) {
+  width: 240rpx;
+  height: 240rpx;
+}
+
+.radar-circle:nth-child(3) {
+  width: 160rpx;
+  height: 160rpx;
+}
+
+.radar-line {
+  position: absolute;
+  width: 2rpx;
+  height: 100%;
+  background: #e0e0e0;
+  top: 0;
+  left: 50%;
+  transform-origin: center;
+}
+
+.radar-data {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+}
+
+.radar-shape {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 100, 150, 0.25);
+  border: 3rpx solid #ff6496;
+  border-radius: 50%;
+}
+
+.radar-point {
+  position: absolute;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 心情颜色定义 */
+.radar-point.happy {
+  background-color: #FFD700;
+}
+
+.radar-point.sad {
+  background-color: #1E90FF;
+}
+
+.radar-point.angry {
+  background-color: #FF4500;
+}
+
+.radar-point.surprised {
+  background-color: #FF69B4;
+}
+
+.radar-point.fear {
+  background-color: #8A2BE2;
+}
+
+.radar-point.hate {
+  background-color: #8B0000;
+}
+
+.radar-point.excited {
+  background-color: #FF6347;
+}
+
+.radar-point.coldness {
+  background-color: #87CEEB;
+}
+
+.radar-point.neutral {
+  background-color: #808080;
+}
+
+/* 标签颜色定义 */
+.radar-label.happy {
+  color: #FFD700;
+}
+
+.radar-label.sad {
+  color: #1E90FF;
+}
+
+.radar-label.angry {
+  color: #FF4500;
+}
+
+.radar-label.surprised {
+  color: #FF69B4;
+}
+
+.radar-label.fear {
+  color: #8A2BE2;
+}
+
+.radar-label.hate {
+  color: #8B0000;
+}
+
+.radar-label.excited {
+  color: #FF6347;
+}
+
+.radar-label.coldness {
+  color: #87CEEB;
+}
+
+.radar-label.neutral {
+  color: #808080;
+}
+
+.radar-labels {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.radar-label {
+  position: absolute;
+  font-size: 20rpx;
+  font-weight: 500;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.1);
+  padding: 4rpx 8rpx;
+  border-radius: 8rpx;
+  background-color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.15);
+  z-index: 11;
+  pointer-events: auto;
+  transform-origin: center;
+}
+
+.mood-summary {
+  margin-top: 40rpx;
+}
+
+.summary-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 15rpx;
+}
+
+.summary-highlight-mood {
+  color: #FFD700;
+  font-weight: 800;
+  margin-left: 16rpx;
+  font-size: 40rpx;
+}
+
+.summary-content {
+  font-size: 24rpx;
+  color: #7f8c8d;
+  line-height: 1.6;
+  display: block;
+  text-align: justify;
+}
+
+/* 底部导航栏 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #ffffff;
+  border-top: 1px solid $uni-border-color;
+  padding: 10rpx 0;
+  z-index: 1000;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bottom-nav .nav-item {
+  width: 25%;
+  box-sizing: border-box;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 0;
+  color: $uni-text-color-grey;
+}
+
+.nav-item.active {
+  color: $uni-color-primary;
+}
+
+.nav-icon {
+  font-size: 48rpx;
+  margin-bottom: 6rpx;
+}
+
+.nav-text {
+  font-size: 20rpx;
+}
+
+</style>

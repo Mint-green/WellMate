@@ -1,0 +1,248 @@
+<template>
+  <view class="register-container">
+    <view class="register-header">
+      <view class="header">
+        <text class="back-icon" @click="goBack">‹</text>
+        <text class="title">{{ $t('register_title') }}</text>
+      </view>
+      <image class="logo" src="/static/logo_noname.png" mode="aspectFit"></image>
+      <text class="app-name">WellMate</text>
+      <text class="slogan">{{ $t('app.slogan') }}</text>
+    </view>
+    
+    <view class="register-form">
+      <view class="form-group">
+        <text class="form-label">{{ $t('username') }}</text>
+        <input 
+          class="form-input" 
+          type="text" 
+          v-model="username" 
+          :placeholder="$t('enter_username')"
+          placeholder-class="placeholder"
+        />
+      </view>
+      
+      <view class="form-group">
+        <text class="form-label">{{ $t('password') }}</text>
+        <input 
+          class="form-input" 
+          type="password" 
+          v-model="password" 
+          :placeholder="$t('enter_password')"
+          placeholder-class="placeholder"
+        />
+      </view>
+      
+      <view class="form-group">
+        <text class="form-label">{{ $t('confirm_password') }}</text>
+        <input 
+          class="form-input" 
+          type="password" 
+          v-model="confirmPassword" 
+          :placeholder="$t('confirm_password_placeholder')"
+          placeholder-class="placeholder"
+        />
+      </view>
+      
+      <button 
+        class="register-btn" 
+        @click="register()"
+      >
+        {{ $t('register_btn') }}
+      </button>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+// 导入国际化工具
+import { t, getCurrentLanguage } from '@/utils/i18n/i18n.uts'
+
+// 暴露t函数给模板使用
+const $t = t
+
+// 添加调试信息
+onMounted(() => {
+  console.log('Current language:', getCurrentLanguage())
+  console.log('Translation test - register_title:', $t('register_title'))
+  console.log('Translation test - app.slogan:', $t('app.slogan'))
+  console.log('Translation test - register_btn:', $t('register_btn'))
+})
+
+// 注册表单数据
+const username = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+
+// 简化表单验证（可选，当前已移除按钮禁用状态）
+const isFormValid = computed(() => {
+  return true // 暂时返回true，确保按钮可以点击
+})
+
+// 返回登录页面
+const goBack = () => {
+  uni.navigateBack()
+}
+
+// 注册方法
+const register = () => {
+  console.log('Register function called')
+  
+  // 简单表单验证
+  if (!username.value.trim()) {
+    uni.showToast({ title: '请输入用户名', icon: 'none' })
+    return
+  }
+  if (password.value !== confirmPassword.value) {
+    uni.showToast({ title: '两次输入的密码不一致', icon: 'none' })
+    return
+  }
+  
+  // 模拟注册成功
+    uni.showToast({
+        title: $t('register_success'),
+        icon: 'success'
+      })
+  
+  // 直接跳转到登录页面
+  setTimeout(() => {
+    uni.navigateTo({
+      url: '/pages/login/login',
+      success: () => {
+        console.log('Navigation success')
+      },
+      fail: (err) => {
+        console.log('Navigation failed:', err)
+        // 如果navigateTo失败，尝试使用redirectTo
+        uni.redirectTo({
+          url: '/pages/login/login'
+        })
+      }
+    })
+  }, 1000)
+}
+</script>
+
+<style scoped>
+.register-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 80rpx 40rpx 0 40rpx; /* 增加顶部padding，整体下移 */
+}
+
+.register-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 100rpx; /* 增加底部margin，增大与表单的间距 */
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  margin-bottom: 60rpx; /* 增加标题区域与logo的间距 */
+}
+
+.back-icon {
+  font-size: 48rpx;
+  color: $uni-text-color;
+  cursor: pointer;
+  position: absolute;
+  left: 30rpx;
+  z-index: 1;
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: $uni-text-color;
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  white-space: nowrap;
+  overflow: visible;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.logo {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 40rpx; /* 增大logo与标题的间距 */
+}
+
+.app-name {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: $uni-text-color;
+  margin-bottom: 30rpx; /* 增大username与slogan的间距 */
+}
+
+.slogan {
+  font-size: 28rpx;
+  color: $uni-text-color-grey;
+}
+
+.register-form {
+  width: 100%;
+  max-width: 500rpx;
+  align-self: center;
+}
+
+.form-group {
+  margin-bottom: 70rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 32rpx;
+  color: $uni-text-color;
+  margin-bottom: 10rpx;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: #ffffff;
+  border: 1rpx solid $uni-border-color;
+  border-radius: 8rpx;
+  font-size: 34rpx;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.placeholder {
+  color: $uni-text-color-placeholder;
+  font-size: 28rpx;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.register-btn {
+  width: 100%;
+  height: 80rpx;
+  /* 当前颜色：珊瑚粉 */
+  background: #f9b8dae3 !important;
+  color: #515151 !important;
+  font-size: 34rpx !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 8rpx !important;
+  opacity: 1 !important;
+  /* 添加阴影效果 */
+  box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.1) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.register-btn:disabled {
+  background: #f9b8dae3 !important;
+  opacity: 0.6 !important;
+}
+</style>

@@ -1,0 +1,68 @@
+<template>
+  <view class="container">
+    <view class="header">
+      <text class="title">Markdown 渲染测试</text>
+    </view>
+    
+    <view class="content">
+      <markdown-render :content="markdownContent" />
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import MarkdownRender from '@/components/markdown-render.vue'
+
+const markdownContent = ref(`
+# 标题1
+## 标题2
+### 标题3
+
+这是一个段落，包含**粗体**、*斜体*和\`行内代码\`。
+
+我们还可以~~删除线~~文本。
+
+[链接测试](https://www.example.com)
+
+![图片测试](https://via.placeholder.com/150)
+
+---
+
+> 这是一个引用块
+> 包含多行内容
+
+- 无序列表项1
+- 无序列表项2
+- 无序列表项3
+
+1. 有序列表项1
+2. 有序列表项2
+3. 有序列表项3
+
+\`\`\`javascript
+// 代码块示例
+function helloWorld() {
+  console.log('Hello, World!');
+}
+\`\`\`
+
+普通段落文本。
+`)
+</script>
+
+<style scoped>
+.container {
+  padding: 20rpx;
+}
+
+.header {
+  margin-bottom: 30rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  text-align: center;
+}
+</style>

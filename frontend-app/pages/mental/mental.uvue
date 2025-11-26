@@ -1,0 +1,1141 @@
+<template>
+  <view class="chat-container">
+    <!-- 顶部导航栏 -->
+    <view class="header">
+      <button class="icon-btn" @click="toggleSessionList">
+        <text class="icon">☰</text>
+      </button>
+      <text class="header-title">{{ currentSessionTitle }}</text>
+      <button class="icon-btn" @click="createNewSession">
+        <text class="icon">+</text>
+      </button>
+    </view>
+    
+    <!-- 会话列表侧边栏 -->
+    <view class="session-sidebar" :class="{ active: showSessionList }">
+      <view class="sidebar-header">
+        <text class="sidebar-title">{{ $t('history_sessions') }}</text>
+        <button class="close-btn" @click="toggleSessionList">×</button>
+      </view>
+      
+      <view class="session-list">
+        <view 
+          v-for="session in sessions" 
+          :key="session.id"
+          class="session-item"
+          :class="{ active: currentSessionId === session.id }"
+          @click="switchSession(session.id)"
+        >
+          <text class="session-title">{{ session.title }}</text>
+          <text class="session-time">{{ formatTime(session.updatedAt) }}</text>
+          <button class="delete-btn" @click.stop="deleteSession(session.id)">
+            <text class="icon">🗑️</text>
+          </button>
+        </view>
+        
+        <view v-if="sessions.length === 0" class="empty-sessions">
+          <text class="empty-text">{{ $t('no_sessions') }}</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- Mask Layer -->
+    <view 
+      class="mask" 
+      :class="{ active: showSessionList }"
+      @click="toggleSessionList"
+    ></view>
+    
+    <!-- 消息区域 -->
+    <scroll-view 
+      class="message-container" 
+      scroll-y 
+      :scroll-top="scrollTop"
+      @scroll="onScroll"
+    >
+      <view class="messages">
+        <view 
+          v-for="(message, index) in currentMessages" 
+          :key="message.id"
+          :class="['message', message.role]"
+        >
+          <view class="avatar">
+            <image 
+              class="avatar-image" 
+              :src="message.role === 'user' ? '/static/logo_noname.png' : '/static/mental_logo.png'" 
+              mode="aspectFit"
+            ></image>
+          </view>
+          <view class="message-content">
+            <!-- 用户消息使用普通文本显示 -->
+            <text v-if="message.role === 'user'" class="message-text">{{ message.content }}</text>
+            <!-- 助手消息使用Markdown渲染 -->
+            <view v-else class="assistant-message-bubble">
+              <markdown-render :content="message.content" />
+            </view>
+            <text class="message-time">{{ formatTime(message.timestamp) }}</text>
+            <button v-if="message.role === 'assistant'" class="voice-button" @click="playVoice(message.content)">
+              <text class="voice-icon">🔊</text>
+            </button>
+          </view>
+        </view>
+        
+        <view v-if="currentMessages.length === 0 && !isLoading" class="welcome-message">
+          <image class="welcome-icon" src="/static/mental_logo.png" mode="aspectFit"></image>
+          <text class="welcome-title">Hi, it's me, Xiao Mo.</text>
+          <text class="welcome-subtitle">(｡･∀･)ﾉﾞHow are you feeling today?</text>
+        </view>
+      </view>
+      
+      <!-- 加载状态 -->
+      <view v-if="isLoading" class="loading-message">
+        <view class="avatar">
+          <image class="avatar-image" src="/static/mental_logo.png" mode="aspectFit"></image>
+        </view>
+        <view class="message-content">
+          <view class="typing-indicator">
+            <text class="dot"></text>
+            <text class="dot"></text>
+            <text class="dot"></text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    
+    <!-- 输入区域 -->
+    <view class="input-container">
+      <view class="input-wrapper">
+        <view class="left-buttons">
+          <button class="voice-btn" @click="startVoiceInput">
+            <image class="voice-icon" src="/static/microphone-icon.svg" mode="aspectFit"></image>
+          </button>
+        </view>
+        <view class="message-input-container">
+          <textarea 
+            class="message-input"
+            v-model="inputMessage"
+            :placeholder="$t('placeholder')"
+            :maxlength="1000"
+            :adjust-position="false"
+            auto-height="true"
+            @confirm="sendMessage"
+          />
+        </view>
+        <view class="right-buttons">
+          <button class="send-btn" @click="sendMessage">
+            <text class="send-icon">➤</text>
+          </button>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部导航栏 -->
+    <view class="bottom-nav">
+      <view class="nav-item" @click="navigateToPage('/pages/index/index')">
+        <text class="nav-icon">📊</text>
+        <text class="nav-text">{{ $t('common.home') }}</text>
+      </view>
+      <view class="nav-item" @click="navigateToPage('/pages/physical/physical')">
+        <text class="nav-icon">🩺</text>
+        <text class="nav-text">{{ $t('common.health') }}</text>
+      </view>
+      <view class="nav-item active" @click="navigateToPage('/pages/mental/mental')">
+        <text class="nav-icon">🧠</text>
+        <text class="nav-text">{{ $t('common.mental') }}</text>
+      </view>
+      <view class="nav-item" @click="navigateToPage('/pages/mine/mine')">
+        <text class="nav-icon">👤</text>
+        <text class="nav-text">{{ $t('common.mine') }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, reactive, onMounted } from 'vue'
+import { ChatMessage, ChatSession } from '@/utils/api-service.uts'
+import sessionManager from '@/utils/session-manager.uts'
+import apiService from '@/utils/api-service.uts'
+import { t } from '@/utils/i18n/i18n.uts'
+import envConfig from '@/utils/env-config.uts'
+import MarkdownRender from '@/components/markdown-render.vue'
+
+// 响应式数据
+const showSessionList = ref(false)
+const inputMessage = ref('')
+const isLoading = ref(false)
+let sessionId: string | null = null
+const scrollTop = ref(0)
+const currentSessionId = ref<string | null>(null)
+const currentSessionTitle = ref('New Chat')
+
+const sessions = ref<ChatSession[]>([])
+const currentMessages = ref<ChatMessage[]>([])
+
+// 快捷建议
+const quickSuggestions = [
+  '感到焦虑怎么办',
+  '如何缓解压力',
+  '改善睡眠质量',
+  '保持情绪稳定'
+]
+
+// 生命周期
+onMounted(() => {
+  loadSessions()
+  // 如果没有当前会话，创建一个新的
+  if (!currentSessionId.value) {
+    createNewSession()
+  }
+})
+
+// 加载会话列表
+const loadSessions = () => {
+  // 只加载心理健康类型的会话
+  sessions.value = sessionManager.getSessions('mental')
+  
+  // 设置当前会话
+  const currentSession = sessionManager.getCurrentSession('mental')
+  if (currentSession) {
+    currentSessionId.value = currentSession.id
+    currentSessionTitle.value = currentSession.title
+    currentMessages.value = currentSession.messages
+  }
+}
+
+// 切换会话列表显示
+const toggleSessionList = () => {
+  showSessionList.value = !showSessionList.value
+}
+
+// 创建新会话
+const createNewSession = () => {
+  const session = sessionManager.createNewSession(undefined, 'mental')
+  currentSessionId.value = session.id
+  currentSessionTitle.value = session.title
+  currentMessages.value = []
+  sessionId = null // 重置sessionId
+  loadSessions()
+}
+
+// 切换会话
+const switchSession = (session_id: string) => {
+  if (sessionManager.setCurrentSession(session_id, 'mental')) {
+    currentSessionId.value = session_id
+    const session = sessionManager.getCurrentSession('mental')
+    if (session) {
+      currentSessionTitle.value = session.title
+      currentMessages.value = session.messages
+    }
+    sessionId = null // 重置sessionId
+    showSessionList.value = false
+    scrollToBottom()
+  }
+}
+
+// 删除会话
+const deleteSession = (sessionId: string) => {
+  // 关闭侧边栏，确保确认框在最上层显示
+  showSessionList.value = false
+  
+  // 直接显示确认框
+  uni.showModal({
+    title: t('delete_confirm'),
+    content: t('delete_content'),
+    cancelText: t('cancel'),
+    confirmText: t('confirm'),
+    success: (res) => {
+      if (res.confirm) {
+        if (sessionManager.deleteSession(sessionId, 'mental')) {
+          loadSessions()
+          // 如果删除的是当前会话，创建新会话
+          if (currentSessionId.value === sessionId) {
+            createNewSession()
+          }
+        }
+      }
+    }
+  })
+}
+
+// 发送消息
+const sendMessage = async () => {
+  const message = inputMessage.value.trim()
+  if (!message || isLoading.value) return
+  
+  // 添加用户消息
+  const userMessage: ChatMessage = {
+    id: 'msg_' + Date.now(),
+    role: 'user',
+    content: message,
+    timestamp: Date.now()
+  }
+  
+  sessionManager.addMessageToCurrentSession(userMessage, 'mental')
+  currentMessages.value = [...currentMessages.value, userMessage]
+  inputMessage.value = ''
+  isLoading.value = true
+  
+  scrollToBottom()
+  
+  try {
+    // 调用API发送消息，第一轮对话不传递session_id
+    const requestData: any = {
+      text: message
+    };
+    
+    // 如果存在会话ID，则添加到请求中
+    if (sessionId) {
+      requestData.session_id = sessionId;
+    }
+    
+    const response = await apiService.sendMentalMessage(message, sessionId)
+    
+    // 更新会话ID
+    if (response && response.data && response.data.session_id) {
+      sessionId = response.data.session_id;
+    }
+    
+    // 检查响应结构并提取内容
+        let content = '';
+        if (response && response.data && response.data.response) {
+          content = response.data.response;
+        } else if (response && response.data && response.data.content) {
+          content = response.data.content;
+        } else if (response && response.content) {
+          content = response.content;
+        } else {
+          content = '感谢您的咨询，我已经收到了您的消息。';
+        }
+        
+        // 剔除括号()及其包裹的内容
+        content = content.replace(/\([^)]*\)/g, '');
+    
+    const assistantMessage: ChatMessage = {
+      id: 'msg_' + Date.now(),
+      role: 'assistant',
+      content: content,
+      timestamp: Date.now()
+    }
+    
+    sessionManager.addMessageToCurrentSession(assistantMessage, 'mental')
+    currentMessages.value = [...currentMessages.value, assistantMessage]
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    
+    // 错误处理
+    const errorMessage: ChatMessage = {
+      id: 'msg_' + Date.now(),
+      role: 'assistant',
+      content: '抱歉，暂时无法连接到服务。请检查网络连接后重试。',
+      timestamp: Date.now()
+    }
+    
+    sessionManager.addMessageToCurrentSession(errorMessage, 'mental')
+    currentMessages.value = [...currentMessages.value, errorMessage]
+  }
+  
+  isLoading.value = false
+  scrollToBottom()
+}
+
+// 语音输入功能
+const startVoiceInput = () => {
+  // 这里可以实现语音识别功能
+  // 目前暂时使用模拟功能
+  uni.showToast({
+    title: 'Voice input in development',
+    icon: 'none',
+    duration: 2000
+  })
+}
+
+// More options feature
+const showMoreOptions = () => {
+  // Here you can implement the display more options feature
+  // Currently using simulated feature
+  uni.showToast({
+    title: 'More options in development',
+    icon: 'none',
+    duration: 2000
+  })
+}
+
+// 语音播放功能 - 支持两种方案切换
+const useNewTTSApi = ref(true); // true使用新接口，false使用原方案
+
+const playVoice = async (text: string) => {
+  // 剔除emoji表情符号
+  const cleanText = text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
+  
+  if (useNewTTSApi.value) {
+    // 使用新的API接口
+    try {
+      // 显示加载提示
+      uni.showLoading({
+        title: 'Generating audio...'
+      });
+      
+      // 调用新的文本转语音接口
+      const response = await uni.request({
+        url: 'http://47.113.206.45:6001/text-to-speech',
+        method: 'POST',
+        header: {
+          'Content-Type': 'application/json'
+        },
+        data: {
+          input: cleanText
+        },
+        responseType: 'arraybuffer' // 重要：指定响应类型为arraybuffer以接收音频数据
+      });
+      
+      uni.hideLoading();
+      
+      if (response.statusCode === 200) {
+        // 创建音频上下文播放音频
+        const innerAudioContext = uni.createInnerAudioContext();
+        // 将arraybuffer转换为base64
+        const base64 = arrayBufferToBase64(response.data);
+        innerAudioContext.src = `data:audio/wav;base64,${base64}`;
+        innerAudioContext.play();
+        
+        innerAudioContext.onError((res) => {
+          console.error('Audio playback failed:', res.errMsg);
+          uni.showToast({
+            title: 'Playback failed',
+            icon: 'none'
+          });
+        });
+      } else {
+        uni.showToast({
+          title: 'Audio generation failed',
+          icon: 'none'
+        });
+      }
+    } catch (error) {
+      uni.hideLoading();
+      console.error('TTS API call failed:', error);
+      uni.showToast({
+        title: 'API call failed',
+        icon: 'none'
+      });
+    }
+  } else {
+    // 原方案：使用浏览器语音合成API
+    if ('speechSynthesis' in window) {
+      const speech = new SpeechSynthesisUtterance(cleanText);
+      speech.lang = 'zh-CN'; // 设置语言为中文
+      speech.rate = 1; // 语速
+      speech.pitch = 1; // 音调
+      speech.volume = 1; // 音量
+      speechSynthesis.speak(speech);
+    } else {
+      uni.showToast({
+        title: 'Device does not support voice playback',
+        icon: 'none'
+      });
+    }
+  }
+}
+
+// ArrayBuffer转Base64
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+  setTimeout(() => {
+    scrollTop.value = 999999 // 足够大的值确保滚动到底部
+  }, 100)
+}
+
+// 切换TTS方案
+const toggleTTS = () => {
+  useNewTTSApi.value = !useNewTTSApi.value
+  uni.showToast({
+    title: `Switched to ${useNewTTSApi.value ? 'new' : 'old'} API`,
+    icon: 'none'
+  })
+}
+
+// 滚动事件
+const onScroll = (e: any) => {
+  // 可以在这里实现滚动加载更多消息
+}
+
+// Format time
+const formatTime = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - timestamp
+  
+  if (diff < 60 * 1000) {
+    return 'Just now'
+  } else if (diff < 60 * 60 * 1000) {
+    return Math.floor(diff / (60 * 1000)) + ' mins ago'
+  } else if (diff < 24 * 60 * 60 * 1000) {
+    return Math.floor(diff / (60 * 60 * 1000)) + ' hours ago'
+  } else {
+    // Format as MM/DD
+    return (date.getMonth() + 1) + '/' + date.getDate()
+  }
+}
+
+// 跳转到健康数据页面（首页）
+const navigateToHealth = () => {
+  uni.switchTab({
+    url: '/pages/index/index'
+  })
+}
+
+// 页面导航
+const navigateToPage = (url) => {
+  // 判断是否为tabBar页面
+  const tabBarPages = ['/pages/index/index', '/pages/physical/physical', '/pages/mental/mental', '/pages/mine/mine']
+  if (tabBarPages.includes(url)) {
+    uni.switchTab({
+      url: url
+    })
+  } else {
+    uni.navigateTo({
+      url: url
+    })
+  }
+}
+
+
+</script>
+
+<style scoped>
+.chat-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  padding-bottom: 120rpx; /* 为底部导航栏留出空间 */
+  box-sizing: border-box;
+}
+
+/* 头部样式 */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333333;
+  padding: 20rpx 30rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1rpx solid rgba(240, 240, 240, 0.5);
+  backdrop-filter: blur(10rpx);
+  z-index: 999;
+}
+
+.tts-toggle {
+  position: absolute;
+  top: 20rpx;
+  right: 100rpx;
+  background: #4facfe;
+  color: white;
+  border: none;
+  border-radius: 20rpx;
+  padding: 10rpx 20rpx;
+  font-size: 24rpx;
+  z-index: 1000;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333333;
+  flex: 1;
+  text-align: center;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 2rpx solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333333;
+  flex-shrink: 0;
+  font-size: 44rpx;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 会话侧边栏 */
+.session-sidebar {
+  position: fixed;
+  top: 0;
+  left: -600rpx;
+  width: 600rpx;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 2rpx 0 20rpx rgba(0,0,0,0.1);
+  z-index: 1000;
+  transition: left 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10rpx);
+}
+
+.session-sidebar.active {
+  left: 0;
+}
+
+.sidebar-header {
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-title {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  width: 60rpx;
+  height: 60rpx;
+  font-size: 36rpx;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.session-item {
+  padding: 25rpx 30rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  position: relative;
+}
+
+.session-item.active {
+  background: #f8f9ff;
+}
+
+.session-title {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 10rpx;
+  max-width: 400rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-time {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.delete-btn {
+  position: absolute;
+  right: 20rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  opacity: 0.5;
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-btn .icon {
+  font-size: 28rpx;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.empty-sessions {
+  padding: 100rpx 30rpx;
+  text-align: center;
+}
+
+.empty-text {
+  color: #999999;
+  font-size: 28rpx;
+}
+
+/* 遮罩层 */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.mask.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 消息区域 */
+.message-container {
+  flex: 1;
+  padding: 250rpx 30rpx 180rpx;
+}
+
+.messages {
+  min-height: 100%;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20rpx;
+  align-items: flex-start;
+}
+
+.message.user {
+  align-items: flex-end;
+}
+
+.avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 10rpx;
+  border: 3rpx solid transparent;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
+
+.message.user .avatar {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.avatar-icon {
+  font-size: 32rpx;
+  color: #666666;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.message.user .avatar-icon {
+  color: white;
+}
+
+.message-content {
+  max-width: 550rpx;
+  background: #f5f5f5;
+  border-radius: 20rpx;
+  padding: 20rpx 25rpx;
+  position: relative;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.message.user .message-content {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.message.assistant .message-content {
+  background: #ffffff;
+  color: #333333;
+  border: 1rpx solid #eeeeee;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.assistant-message-bubble {
+  width: 100%;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.message-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.message.user .message-text {
+  color: white;
+}
+
+.message-time {
+  font-size: 20rpx;
+  color: #999999;
+  margin-top: 10rpx;
+  display: block;
+}
+
+.voice-button {
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 50%;
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 16rpx;
+  cursor: pointer;
+  box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.voice-button:hover {
+  background-color: #e0e0e0;
+}
+
+.voice-button:active {
+  background-color: #d0d0d0;
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
+}
+
+.voice-button .voice-icon {
+  font-size: 32rpx;
+  color: #555;
+  width: auto;
+  height: auto;
+}
+
+.message.user .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 欢迎消息 */
+.welcome-message {
+  text-align: center;
+  padding: 100rpx 60rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+.welcome-icon {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 40rpx;
+  opacity: 0.9;
+  border-radius: 50%;
+  border: 4rpx solid transparent;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.2);
+}
+
+.welcome-title {
+  font-size: 42rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 20rpx;
+  letter-spacing: 1rpx;
+}
+
+.welcome-subtitle {
+  font-size: 30rpx;
+  color: #666666;
+  display: block;
+  margin-bottom: 40rpx;
+  line-height: 1.5;
+  max-width: 500rpx;
+}
+
+/* 加载状态 */
+.loading-message {
+  display: flex;
+  margin-bottom: 20rpx;
+  gap: 20rpx;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 8rpx;
+  align-items: center;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #999999;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  30% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* 输入区域 */
+.input-container {
+  position: fixed;
+  bottom: 120rpx;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-top: 1rpx solid rgba(240, 240, 240, 0.5);
+  padding: 20rpx 30rpx;
+  backdrop-filter: blur(10rpx);
+  z-index: 999;
+}
+
+/* 快捷建议样式 */
+.quick-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.suggestion-tag {
+  padding: 12rpx 24rpx;
+  background-color: rgba(52, 152, 219, 0.1);
+  color: #3498db;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.suggestion-tag:active {
+  background-color: rgba(52, 152, 219, 0.2);
+}
+
+.input-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.message-input-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border: 1rpx solid #e9ecef;
+  border-radius: 35rpx;
+  transition: all 0.2s ease;
+  flex-wrap: nowrap;
+  padding: 8rpx 16rpx;
+  min-height: 60rpx;
+  max-height: 120rpx;
+}
+
+.message-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 0 40rpx;
+  font-size: 28rpx;
+  min-height: 44rpx;
+  max-height: 104rpx;
+  line-height: 44rpx;
+  box-sizing: border-box;
+  resize: none;
+  outline: none;
+  overflow-y: auto;
+  align-self: center;
+  margin: auto 0;
+}
+
+.left-buttons, .right-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 8rpx;
+}
+
+.left-buttons {
+  margin-right: 16rpx;
+}
+
+.right-buttons {
+  margin-left: 16rpx;
+}
+
+.voice-btn {
+  background: transparent;
+  border: 2rpx solid #e0e0e0;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333333;
+  transition: all 0.2s ease;
+}
+
+.voice-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333333;
+}
+
+.voice-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.plus-btn {
+  background: none;
+  border: none;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  transition: all 0.2s ease;
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+.plus-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #4facfe;
+}
+
+.send-btn {
+  background: transparent;
+  border: 2rpx solid #e0e0e0;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333333;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.send-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333333;
+}
+
+.message-input:focus {
+  background: white;
+  border-color: #4facfe;
+  box-shadow: 0 0 0 2rpx rgba(79, 172, 254, 0.1);
+}
+
+
+
+/* 底部导航栏 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-top: 1px solid rgba(240, 240, 240, 0.5);
+  padding: 10rpx 0;
+  z-index: 1000;
+  width: 100%;
+  box-sizing: border-box;
+  backdrop-filter: blur(10rpx);
+}
+
+.bottom-nav .nav-item {
+  width: 25%;
+  box-sizing: border-box;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 0;
+  color: #999999;
+}
+
+.nav-item.active {
+  color: #3498db;
+}
+
+.nav-icon {
+  font-size: 48rpx;
+  margin-bottom: 6rpx;
+}
+
+.nav-text {
+  font-size: 20rpx;
+}
+
+</style>

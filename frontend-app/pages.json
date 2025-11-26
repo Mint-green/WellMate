@@ -1,0 +1,104 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black",
+        "navigationBarTitleText": "登录",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/register/register",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black",
+        "navigationBarTitleText": "注册",
+        "enablePullDownRefresh": false
+      }
+    },
+
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/physical/physical",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mental/mental",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/settings",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/webview/webview",
+      "style": {
+        "navigationBarTitleText": "网页浏览",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/markdown-test/markdown-test",
+      "style": {
+        "navigationBarTitleText": "Markdown测试",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8",
+    "navigationStyle": "custom"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#3498db",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/physical/physical",
+        "text": "健康助手"
+      },
+      {
+        "pagePath": "pages/mental/mental",
+        "text": "心灵树洞"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      },
+      {
+        "pagePath": "pages/index/index",
+        "text": "总览"
+      }
+    ]
+  }
+}
